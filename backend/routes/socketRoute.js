@@ -37,15 +37,13 @@ function websocketRoute(server) {
             const decoded = jwt.verify(token, JWT_SECRET);
             const userId = decoded.id;
             socket.userId = userId;
-
             // Store the socket for the user
             clients[userId] = socket;
-            socket.emit('connected', { message: 'You are connected!' });
-            
+            socket.emit('connected', {userId});
+            broadcastActiveUsers();
 
             // Initialize active conversations for the user
             activeConversations[userId] = activeConversations[userId] || {};
-
             socket.on('sendMessage', async (msg) => {
                 try {
                     // Save the text message to the database
@@ -56,10 +54,8 @@ function websocketRoute(server) {
                         timestamp: new Date(),
                         is_read: false,
                     });
-            
                     // Initialize the filePaths array to store file references
                     let filePaths = [];
-            
                     // Handle files if present
                     if (msg.files && msg.files.length > 0) {
                         for (const file of msg.files) {
@@ -68,18 +64,15 @@ function websocketRoute(server) {
                             const fileName = `${Date.now()}-${file.name}`;
                             const filePath = path.join(__dirname, 'uploads', fileName);
                             fs.writeFileSync(filePath, file.data); 
-            
                             // Save the file metadata in the database
                             const newFile = await ChatFile.create({
                                 file_name: fileName,
                                 message_id: newMessage.message_id,
                             });
-            
                             // Add the file reference to the filePaths array
                             filePaths.push(newFile);
                         }
                     }
-            
                     // Call the broadcast function with or without files
                     broadcastOneToOneMessage(newMessage, filePaths);
                 } catch (err) {
@@ -219,11 +212,12 @@ function websocketRoute(server) {
                 }
             });
 
-            // Handle user disconnection
+            // Handle user discfonnection
             socket.on('disconnect', () => {
                 if (socket.userId) {
                     // Clean up clients object
                     delete clients[socket.userId];
+                    broadcastActiveUsers();
                     for (const groupId in groups) {
                         const groupMembers = groups[groupId];
                         const index = groupMembers.indexOf(socket.userId);
@@ -237,16 +231,47 @@ function websocketRoute(server) {
                     }
                 }
             });
+
+
+            const typingUsers = {};
+            socket.on('typing', (groupId, userId, userName) => {
+              if (!typingUsers[groupId]) {
+                typingUsers[groupId] = [];
+              }
+              const userExists = typingUsers[groupId].some(user => user.userId === userId);
+              if (!userExists) {
+                typingUsers[groupId].push({ userId, userName });
+              }
+              console.log(groupId, typingUsers[groupId]);
+              
+              socket.to(groupId).emit('typing', groupId, typingUsers[groupId]);
+
+
+            });
+
+            
+            socket.on('stopTyping', (groupId, userId, userName) => {
+              if (typingUsers[groupId]) {
+                typingUsers[groupId] = typingUsers[groupId].filter(user => user.userId !== userId);
+                socket.to(groupId).emit('stopTyping', groupId, typingUsers[groupId]);
+              }
+            });
+            
+            
+
+        
+        // Function to broadcast active user list
+        function broadcastActiveUsers() {
+            const activeUsers = Object.keys(clients).map(userId => {
+                return { userId, userName: clients[userId].userName };  
+            });
+            io.emit('activeUserList', activeUsers);
+        }
         } catch (err) {
             console.error('Error verifying token: ', err);
             socket.disconnect();
         }
     });
-
-    
-
-    // Function to broadcast a group message
-
 }
 
 module.exports = websocketRoute;
