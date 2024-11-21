@@ -161,14 +161,14 @@ router.get('/getMessages', async (req, res) => {
                     attributes: ['user_id', 'user_name']
                 }
             ],
-            order: [['created_at', 'desc']] 
+            order: [['message_id', 'ASC']] 
         });
 
         // If no messages are found, return 404
         if (messages.length === 0) {
             return res.status(200).json([]);
         }
-
+        
         // Fetch associated files for each message asynchronously
         const messagesWithFiles = await Promise.all(
             messages.map(async (msg) => {
@@ -186,6 +186,8 @@ router.get('/getMessages', async (req, res) => {
                     receiver_name: msg.receiver.user_name,
                     content: msg.content,
                     timestamp: msg.created_at,
+                    prevContent: msg.prevContent,
+                    prevMessageId: msg.prevMessageId,
                     files: files.map(file => ({
                         file_id: file.file_id,
                         file_name: file.file_name
@@ -295,7 +297,7 @@ router.get('/getGroupMessages', async (req, res) => {
                     attributes: ['user_id', 'user_name'] // Fetch sender's user_id and user_name
                 }
             ],
-            order: [['createdAt', 'ASC']],
+            order: [['message_id', 'ASC']],
         });
 
         // If no messages are found, return 404

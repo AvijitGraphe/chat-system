@@ -40,6 +40,15 @@ export default function Message() {
   const [hoverMessage, setHoverMessage] = useState(null);
   const [replyingTo, setReplyingTo] = useState(null);
 
+  //chat contaienr ref..
+  const chatcontainerRef = useRef(null)
+
+  useEffect(() =>{
+    if(chatcontainerRef.current){
+      chatcontainerRef.current.scrollTop = chatcontainerRef.current.scrollHeight;
+    }
+  }, [messages])
+
   const fileUrl = "http://localhost:5000/routes/uploads";
 
   // Fetch user list from the API
@@ -373,8 +382,6 @@ export default function Message() {
 
   const handleReplyClick = (message) => {
     setReplyingTo(message); 
-    console.log(message);
-    
     setInputValue("");
   };
 
@@ -519,6 +526,7 @@ export default function Message() {
           <div
             className="flex-grow-1 overflow-auto border border-light rounded p-3 mb-2"
             style={{ height: "400px", backgroundColor: "#f1f1f1" }}
+            ref={chatcontainerRef}
           >
             {messages.length > 0 ? (
               messages.map((msg) => (
@@ -558,7 +566,7 @@ export default function Message() {
                   </Button>
                   {/* Reply content (if any) */}
                   {msg.prevContent && (
-                    <div className="reply-content" style={{ marginBottom: "10px", padding: "10px", backgroundColor: "#f0f0f0", borderRadius: "5px" }}>
+                    <div className="reply-content" style={{ marginBottom: "10px", padding: "10px", backgroundColor: "#BEB8B8FF", borderRadius: "5px" }}>
                       <strong>Replying to:</strong>
                       <p>{msg.sender_name}</p>
                       <p>{msg.prevContent}</p>

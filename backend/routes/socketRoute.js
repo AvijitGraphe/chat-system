@@ -26,7 +26,6 @@ function websocketRoute(server) {
     const io = WebSocket(server);
     io.on('connection', (socket) => {
         const token = socket.handshake.query.token;
-        console.log('Received token:', token);
         if (!token) {
             console.error('No token provided');
             socket.disconnect();
@@ -245,11 +244,7 @@ function websocketRoute(server) {
               if (!userExists) {
                 typingUsers[groupId].push({ userId, userName });
               }
-              console.log(groupId, typingUsers[groupId]);
-              
               socket.to(groupId).emit('typing', groupId, typingUsers[groupId]);
-
-
             });
 
 
