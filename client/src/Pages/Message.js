@@ -87,6 +87,7 @@ export default function Message() {
   useEffect(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
     const socketUrl = `${protocol}${window.location.hostname}${window.location.port ? `:${window.location.port}` : ''}`;
+    
     const newSocket = io(socketUrl, {
       query: { token: accessToken },
       transports: ['websocket'],
@@ -96,9 +97,7 @@ export default function Message() {
       reconnectionDelayMax: 5000, 
       auth: { token: accessToken },  
     });
-
-
-
+    
     setSocket(newSocket);
     newSocket.on("connect", () => {
     });

@@ -132,8 +132,6 @@ function websocketRoute(server) {
             
             socket.on('sendGroupMessage', async (msg) => {
                 try {
-                    console.log(msg);
-                    
                     // Validate incoming message data
                     if (!msg.senderId || !msg.content || !msg.groupId) {
                         console.error("Missing required fields: senderId, content, or groupId");
@@ -194,7 +192,6 @@ function websocketRoute(server) {
 
                 groupUsers.forEach(userId => {
                     if (clients[userId]) {
-                        console.log(`Sending message to user ${userId}`);
                         clients[userId].emit('receiveGroupMessage', messageData);
                     } else {
                         console.log(`No client found for user ${userId}`);
@@ -212,7 +209,6 @@ function websocketRoute(server) {
                 if (!groups[groupId].includes(userId)) {
                     groups[groupId].push(userId);
                     socket.join(groupId);
-                    console.log(`User ${userId} joined group ${groupId}`);
                     io.to(groupId).emit('userJoinedGroup', { userId, groupId });
                 }
             });
@@ -221,13 +217,11 @@ function websocketRoute(server) {
             // On the backend: handle the user leaving a group
             socket.on('leaveGroup', (groupId) => {
                 const groupMembers = groups[groupId];
-
                 if (groupMembers) {
                     const index = groupMembers.indexOf(userId);
                     if (index > -1) {
-                        groupMembers.splice(index, 1); // Remove user from group
-                        socket.leave(groupId); // Ensure the socket leaves the room
-                        console.log(`User ${userId} left group ${groupId}`);
+                        groupMembers.splice(index, 1); 
+                        socket.leave(groupId); 
                         io.to(groupId).emit('userLeftGroup', { userId, groupId });
                     }
                 }
@@ -236,18 +230,14 @@ function websocketRoute(server) {
             // Leave a group
             // Leave a one-to-one conversation
             socket.on('leaveConversation', (otherUserId) => {
-                console.log(`User ${userId} left conversation with ${otherUserId}`);
-
                 // Remove the other user from active conversations
                 if (activeConversations[userId] && activeConversations[userId][otherUserId]) {
                     delete activeConversations[userId][otherUserId];
                 }
-
                 // Optionally remove the current user from the other user's active conversations as well
                 if (activeConversations[otherUserId] && activeConversations[otherUserId][userId]) {
                     delete activeConversations[otherUserId][userId];
                 }
-                console.log(`User ${userId} is no longer in conversation with ${otherUserId}`);
             });
 
             // Handle user disconnection
@@ -255,7 +245,6 @@ function websocketRoute(server) {
                 if (socket.userId) {
                     // Clean up clients object
                     delete clients[socket.userId];
-                    // Remove user from all groups
                     for (const groupId in groups) {
                         const groupMembers = groups[groupId];
                         const index = groupMembers.indexOf(socket.userId);
@@ -263,15 +252,11 @@ function websocketRoute(server) {
                             groupMembers.splice(index, 1);
                         }
                     }
-                    // Remove user from active conversations
                     for (const otherUserId in activeConversations[socket.userId]) {
                         delete activeConversations[socket.userId][otherUserId];
                     }
-
-                    console.log(`User ${socket.userId} disconnected`);
                 }
             });
-
         } catch (err) {
             console.error('Error verifying token: ', err);
             socket.disconnect();
