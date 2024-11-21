@@ -86,13 +86,19 @@ export default function Message() {
 
   useEffect(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
-    const socketUrl = protocol + window.location.hostname + (window.location.port ? `:${window.location.port}` : '');
-
-    console.log("log the all the data", protocol,  socketUrl);
+    const socketUrl = `${protocol}${window.location.hostname}${window.location.port ? `:${window.location.port}` : ''}`;
     const newSocket = io(socketUrl, {
       query: { token: accessToken },
-      transports: ["websocket"],
+      transports: ['websocket'],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,  
+      reconnectionDelayMax: 5000, 
+      auth: { token: accessToken },  
     });
+
+
+
     setSocket(newSocket);
     newSocket.on("connect", () => {
     });
