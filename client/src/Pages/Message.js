@@ -85,7 +85,11 @@ export default function Message() {
   };
 
   useEffect(() => {
-    const newSocket = io(config.apiUrl, {
+    const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+    const socketUrl = protocol + window.location.hostname + (window.location.port ? `:${window.location.port}` : '');
+
+    console.log("log the all the data", protocol,  socketUrl);
+    const newSocket = io(socketUrl, {
       query: { token: accessToken },
       transports: ["websocket"],
     });
@@ -147,7 +151,10 @@ useEffect(() => {
   };
   const handleCloseDialog = () => {
     setShowCreateGroup(false);
+    setSelectedUsers([]);
+    setGroupName("");
   };
+  
 
 
    //create group lists
