@@ -130,7 +130,6 @@ export default function Message() {
           }
         }
       };
-
       // Typing event handler
       const handleTyping = (groupId, users) => {
         if (groupId === parseInt(activeGroup, 10)) {
@@ -139,7 +138,6 @@ export default function Message() {
           setTypingUsers([]);
         }
       };
-
       // Stop typing event handler
       const handleStopTyping = (groupId, users) => {
         setTypingUsers([]);
@@ -232,10 +230,8 @@ export default function Message() {
       setAnotherCondition(true);
       setMessages([]);
       setReceiverName([]);
-
       handleGetGroupMessages(group.group_id);
       setActiveGroup(group.group_id);
-
       const response = await axios.get(`${config.apiUrl}/api/getGroupMembers`, {
         params: { groupId: group.group_id },
       });
@@ -339,7 +335,6 @@ export default function Message() {
 
   const handleSendGroupMessage = async (e) => {
     e.preventDefault();
-
     if (!getGroupId || !inputValue) {
       alert("Please select a group and type a message.");
       return;
@@ -348,6 +343,10 @@ export default function Message() {
       senderId: userId,
       groupId: getGroupId,
       content: inputValue,
+      
+      prevMessageId: replyingTo ? replyingTo.message_id : null,
+      prevContent: replyingTo ? replyingTo.content : "",
+
       files:
         Array.isArray(file) && file.length > 0
           ? file.map((f) => ({
@@ -379,13 +378,10 @@ export default function Message() {
     }
   };
 
-
   const handleReplyClick = (message) => {
     setReplyingTo(message); 
     setInputValue("");
   };
-
-
 
 
   return (
@@ -524,10 +520,10 @@ export default function Message() {
 
           {/* Message Display Section */}
           <div
-            className="flex-grow-1 overflow-auto border border-light rounded p-3 mb-2"
-            style={{ height: "400px", backgroundColor: "#f1f1f1" }}
-            ref={chatcontainerRef}
-          >
+              className="flex-grow-1 overflow-auto border border-light rounded p-3 mb-2"
+              style={{ height: "400px", backgroundColor: "#f1f1f1" }}
+              ref={chatcontainerRef}
+            >
             {messages.length > 0 ? (
               messages.map((msg) => (
                 <div
@@ -785,13 +781,12 @@ export default function Message() {
             </Form>
           )}
 
-
-
-
         </Col>
       </Row>
 
       {/* Create Group Dialog */}
+
+
       <Dialog
         header="Create New Group"
         visible={showCreateGroup}
@@ -851,6 +846,7 @@ export default function Message() {
             />
           </Form>
         </Card>
+
       </Dialog>
 
 

@@ -287,40 +287,35 @@ router.get('/getGroupMembers', async (req, res) => {
 router.get('/getGroupMessages', async (req, res) => {
     const { groupId } = req.query;
     try {
-        // Fetch messages for the group along with sender's details
         const messages = await Message.findAll({
             where: { group_id: groupId },
             include: [
                 {
                     model: User,
-                    as: 'sender', // Assuming the alias for the sender is 'sender'
-                    attributes: ['user_id', 'user_name'] // Fetch sender's user_id and user_name
+                    as: 'sender', 
+                    attributes: ['user_id', 'user_name'] 
                 }
             ],
             order: [['message_id', 'ASC']],
         });
-
         // If no messages are found, return 404
         if (messages.length === 0) {
             return res.status(202).json([]);
         }
-
-        // Fetch associated files for each message asynchronously
         const messagesWithFiles = await Promise.all(
             messages.map(async (msg) => {
-                // Fetch files related to this message
                 const files = await ChatFile.findAll({
                     where: { message_id: msg.message_id },
                 });
-
-                // Return the message with sender's name and associated files
                 return {
                     message_id: msg.message_id,
                     sender_id: msg.sender_id,
-                    sender_name: msg.sender ? msg.sender.user_name : null, // Add sender name
+                    sender_name: msg.sender ? msg.sender.user_name : null, 
                     group_id: msg.group_id,
                     content: msg.content,
-                    timestamp: msg.createdAt, // Make sure to use correct timestamp field
+                    prevContent: msg.prevContent,
+                    prevMessageId: msg.prevMessageId,
+                    timestamp: msg.createdAt, 
                     files: files.map(file => ({
                         file_id: file.file_id,
                         file_name: file.file_name,
@@ -328,8 +323,6 @@ router.get('/getGroupMessages', async (req, res) => {
                 };
             })
         );
-
-        // Return the enriched messages with files and sender's name
         res.status(200).json(messagesWithFiles);
     } catch (error) {
         console.error("Error fetching messages:", error);
