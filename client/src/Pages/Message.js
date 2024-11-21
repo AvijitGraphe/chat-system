@@ -98,7 +98,7 @@ export default function Message() {
     const socketUrl = `${protocol}${window.location.hostname}${
       window.location.port ? `:${window.location.port}` : ""
     }`;
-    const newSocket = io(`${config.apiUrl}`, {
+    const newSocket = io(socketUrl, {
       query: { token: accessToken },
       transports: ["websocket"],
       reconnection: true,
@@ -393,7 +393,7 @@ export default function Message() {
           className="d-flex flex-column bg-white rounded shadow-sm p-3"
         >
           <div className="d-flex align-items-center justify-content-between">
-            <h3 className="mb-3 p-2 text-primary">{userName}</h3>
+            <h3 className="mb-3 p-2 text-primary text-capitalize-custom" style={{textTransform: "capitalize"}}>{userName}</h3>
             <Button
               type="button"
               label="Create Group"
@@ -409,7 +409,7 @@ export default function Message() {
             <ListGroup
               variant="flush"
               className="overflow-auto"
-              style={{ height: "400px", backgroundColor: "#f9f9f9" }}
+              style={{ height: "400px", backgroundColor: "#f9f9f9", textTransform: "capitalize",}}
             >
               {userlist.length > 0 ? (
                 userlist.map((user) => (
@@ -450,7 +450,7 @@ export default function Message() {
             <ListGroup
               variant="flush"
               className="overflow-auto mt-4"
-              style={{ height: "200px", backgroundColor: "#f9f9f9" }}
+              style={{ height: "200px", backgroundColor: "#f9f9f9", textTransform: "capitalize",}}
             >
               {groups.length > 0 ? (
                 groups.map((group) => (
@@ -480,12 +480,12 @@ export default function Message() {
         >
           {receiverName && !getGroupId && (
             <div className="mb-2">
-              <strong>{receiverName}</strong>
+              <strong style={{textTransform:"capitalize"}}>{receiverName}</strong>
             </div>
           )}
           {showGroupName && getGroupId && (
             <div className="mb-2">
-              <strong className="capitalize">{showGroupName}</strong>
+              <strong className="capitalize" style={{textTransform:"capitalize"}}>{showGroupName}</strong>
               <ul
                 className="d-flex flex-row flex-wrap gap-2"
                 style={{ listStyleType: "none", paddingLeft: 0 }}
@@ -510,11 +510,11 @@ export default function Message() {
           {/* Typing indicator */}
           {typingUsers.length > 0 && (
             <div className="mb-2">
-              <strong>
+              <p style={{textTransform:"capitalize" , color:"#0FE461FF"}}>
                 {typingUsers.length === 1
                   ? `${typingUsers[0]} is typing...`
                   : `${typingUsers.join(", ")} are typing...`}
-              </strong>
+              </p>
             </div>
           )}
 
