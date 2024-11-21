@@ -126,7 +126,7 @@ router.get('/messages', async (req, res) => {
                     { group_id: groupId },
                 ],
             },
-            order: [['createdAt', 'ASC']],
+            order: [['createdAt', 'desc']],
         });
         res.status(200).json(messages);
     } catch (error) {

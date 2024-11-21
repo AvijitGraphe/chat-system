@@ -45,6 +45,14 @@ const Message = sequelize.define("Message", {
     type: DataTypes.STRING,
     allowNull: false,
   },
+  prevMessageId:{
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
+  prevContent: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
 }, {
   timestamps: true, 
   tableName: "Message",

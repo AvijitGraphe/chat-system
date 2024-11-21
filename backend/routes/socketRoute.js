@@ -51,6 +51,8 @@ function websocketRoute(server) {
                         sender_id: msg.senderId,
                         receiver_id: msg.receiverId,
                         content: msg.content,
+                        prevMessageId: msg.prevMessageId,
+                        prevContent: msg.prevContent,
                         timestamp: new Date(),
                         is_read: false,
                     });
@@ -87,6 +89,7 @@ function websocketRoute(server) {
                     message_id: message.message_id,
                     sender_id: message.sender_id,
                     receiver_id: message.receiver_id,
+                    prevContent: message.prevContent,
                     content: message.content,
                     timestamp: message.timestamp,
                     files: filePaths || [], // If no files, pass an empty array
@@ -249,7 +252,7 @@ function websocketRoute(server) {
 
             });
 
-            
+
             socket.on('stopTyping', (groupId, userId, userName) => {
               if (typingUsers[groupId]) {
                 typingUsers[groupId] = typingUsers[groupId].filter(user => user.userId !== userId);

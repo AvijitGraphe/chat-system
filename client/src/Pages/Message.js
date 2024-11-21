@@ -23,7 +23,6 @@ export default function Message() {
   const [groupName, setGroupName] = useState("");
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [groups, setGroups] = useState([]);
-  const [groupShow, setGroupShow] = useState(false);
   const [showGroupName, setShowGroupName] = useState("");
   const [show, setShow] = useState(false);
   const [anotherCondition, setAnotherCondition] = useState(false);
@@ -38,6 +37,8 @@ export default function Message() {
   const [typingUsers, setTypingUsers] = useState([]);
   const [activeUsers, setActiveUsers] = useState([]);
   const [activeGroup, setActiveGroup] = useState(null);
+  const [hoverMessage, setHoverMessage] = useState(null);
+  const [replyingTo, setReplyingTo] = useState(null);
 
   const fileUrl = "http://localhost:5000/routes/uploads";
 
@@ -251,6 +252,8 @@ export default function Message() {
       senderId: userId,
       receiverId,
       content: inputValue,
+      prevMessageId: replyingTo ? replyingTo.message_id : null,
+      prevContent: replyingTo ? replyingTo.content : "",
       files:
         Array.isArray(file) && file.length > 0
           ? file.map((f) => ({
@@ -267,6 +270,7 @@ export default function Message() {
       }
       setInputValue("");
       setFile([]);
+      setReplyingTo("")
     } catch (error) {
       console.error("Error sending message", error);
     }
@@ -365,6 +369,17 @@ export default function Message() {
       }, 1000);
     }
   };
+
+
+  const handleReplyClick = (message) => {
+    setReplyingTo(message); 
+    console.log(message);
+    
+    setInputValue("");
+  };
+
+
+
 
   return (
     <Container className="py-4 bg-light">
@@ -465,7 +480,6 @@ export default function Message() {
               <strong>{receiverName}</strong>
             </div>
           )}
-
           {showGroupName && getGroupId && (
             <div className="mb-2">
               <strong className="capitalize">{showGroupName}</strong>
@@ -516,101 +530,115 @@ export default function Message() {
                       : "justify-content-start"
                   }`}
                 >
-                  <div
-                    className="message-bubble p-2"
+                <div
+                  className="message-bubble p-2"
+                  style={{
+                    backgroundColor: msg.sender_id === parseInt(userId, 10) ? "#007bff" : "#f0f0f0",
+                    color: msg.sender_id === parseInt(userId, 10) ? "#fff" : "#000",
+                    borderRadius: "15px",
+                    maxWidth: "80%",
+                    position: "relative",
+                  }}
+                  onMouseEnter={() => setHoverMessage(msg.message_id)} 
+                  onMouseLeave={() => setHoverMessage(null)}
+                >
+                  {/* Displaying the Button */}
+                  <Button
                     style={{
-                      backgroundColor:
-                        msg.sender_id === parseInt(userId, 10)
-                          ? "#007bff"
-                          : "#f0f0f0",
-                      color:
-                        msg.sender_id === parseInt(userId, 10)
-                          ? "#fff"
-                          : "#000",
-                      borderRadius: "15px",
-                      maxWidth: "80%",
+                      position: "absolute",  
+                      left: msg.sender_id === parseInt(userId, 10) ? "0" : "auto",  
+                      right: msg.sender_id !== parseInt(userId, 10) ? "0" : "auto", 
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      visibility: hoverMessage === msg.message_id ? "visible" : "hidden", 
                     }}
+                    onClick={() => handleReplyClick(msg)}  // Handle reply
                   >
-                    <strong>
-                      {msg.sender_id === parseInt(userId, 10)
-                        ? "You"
-                        : msg.sender_name}
-                      :
-                    </strong>
-                    {msg.content}
-                    {/* Check if there are files attached to the message */}
-                    {msg.files && msg.files.length > 0 && (
-                      <div className="mt-2">
-                        <ul style={{ listStyleType: "none", paddingLeft: "0" }}>
-                          {msg.files.map((file) => (
-                            <li key={file.file_id}>
-                              {/* File type handling */}
-                              {file.file_name && (
-                                <>
-                                  {/* If the file is an image */}
+                    Reply
+                  </Button>
+                  {/* Reply content (if any) */}
+                  {msg.prevContent && (
+                    <div className="reply-content" style={{ marginBottom: "10px", padding: "10px", backgroundColor: "#f0f0f0", borderRadius: "5px" }}>
+                      <strong>Replying to:</strong>
+                      <p>{msg.sender_name}</p>
+                      <p>{msg.prevContent}</p>
+                    </div>
+                  )}
+                  {/* Message Sender Name */}
+                  <strong>
+                    {msg.sender_id === parseInt(userId, 10) ? "You" : msg.sender_name}
+                  </strong>
+                  {/* Message Content */}
+                  <p>{msg.content}</p>
+                  {/* Display Files (if any) */}
+                  {msg.files && msg.files.length > 0 && (
+                    <div className="mt-2">
+                      <ul style={{ listStyleType: "none", paddingLeft: "0" }}>
+                        {msg.files.map((file) => (
+                          <li key={file.file_id}>
+                            {/* File type handling */}
+                            {file.file_name && (
+                              <>
+                                {/* If the file is an image */}
+                                {file.file_name.match(/\.(jpg|jpeg|png|gif)$/i) && (
+                                  <div className="mt-2">
+                                    <img
+                                      src={`${fileUrl}/${file.file_name}`}
+                                      alt="Uploaded file"
+                                      style={{
+                                        maxWidth: "200px",
+                                        maxHeight: "200px",
+                                      }}
+                                    />
+                                  </div>
+                                )}
 
-                                  {file.file_name.match(
-                                    /\.(jpg|jpeg|png|gif)$/i
-                                  ) && (
-                                    <div className="mt-2">
-                                      <img
-                                        src={`${fileUrl}/${file.file_name}`}
-                                        alt="Uploaded file"
-                                        style={{
-                                          maxWidth: "200px",
-                                          maxHeight: "200px",
-                                        }}
-                                      />
-                                    </div>
-                                  )}
-                                  {/* If the file is a PDF */}
-                                  {file.file_name.match(/\.(pdf)$/i) && (
-                                    <div className="mt-2">
-                                      <a
-                                        href={file.file_url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                      >
-                                        <strong>View PDF</strong>
-                                      </a>
-                                    </div>
-                                  )}
+                                {/* If the file is a PDF */}
+                                {file.file_name.match(/\.(pdf)$/i) && (
+                                  <div className="mt-2">
+                                    <a
+                                      href={file.file_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                    >
+                                      <strong>View PDF</strong>
+                                    </a>
+                                  </div>
+                                )}
 
-                                  {/* If the file is an Excel file */}
-                                  {file.file_name.match(/\.(xls|xlsx)$/i) && (
-                                    <div className="mt-2">
-                                      <a
-                                        href={file.file_url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                      >
-                                        <strong>View Excel File</strong>
-                                      </a>
-                                    </div>
-                                  )}
+                                {/* If the file is an Excel file */}
+                                {file.file_name.match(/\.(xls|xlsx)$/i) && (
+                                  <div className="mt-2">
+                                    <a
+                                      href={file.file_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                    >
+                                      <strong>View Excel File</strong>
+                                    </a>
+                                  </div>
+                                )}
 
-                                  {/* Default fallback for other file types */}
-                                  {!file.file_name.match(
-                                    /\.(jpg|jpeg|png|gif|pdf|xls|xlsx)$/i
-                                  ) && (
-                                    <div className="mt-2">
-                                      <a
-                                        href={file.file_url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                      >
-                                        <strong>Download File</strong>
-                                      </a>
-                                    </div>
-                                  )}
-                                </>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
+                                {/* Default fallback for other file types */}
+                                {!file.file_name.match(/\.(jpg|jpeg|png|gif|pdf|xls|xlsx)$/i) && (
+                                  <div className="mt-2">
+                                    <a
+                                      href={file.file_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                    >
+                                      <strong>Download File</strong>
+                                    </a>
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
                 </div>
               ))
             ) : (
@@ -619,6 +647,10 @@ export default function Message() {
           </div>
 
           {/* Message Input Section */}
+
+
+
+
           {isShow && (
             <Form
               onSubmit={
@@ -648,7 +680,17 @@ export default function Message() {
                 </Col>
 
                 {/* Message input */}
+
                 <Col>
+
+                  {replyingTo && (
+                    <div className="replying-to">
+                      <strong>Replying to:</strong> 
+                      <p className="p-0 p-0">{replyingTo.sender_name}</p>
+                      <p className="px-4 top-0 bottom-0">{replyingTo.content}</p>
+                    </div>
+                  )}
+                  
                   <Form.Control
                     type="text"
                     placeholder="Type a message..."
@@ -657,6 +699,9 @@ export default function Message() {
                     onChange={handleInputChange}
                     required
                   />
+
+
+
                 </Col>
               </Row>
 
@@ -731,6 +776,10 @@ export default function Message() {
               </Button>
             </Form>
           )}
+
+
+
+
         </Col>
       </Row>
 
@@ -795,6 +844,8 @@ export default function Message() {
           </Form>
         </Card>
       </Dialog>
+
+
     </Container>
   );
 }
