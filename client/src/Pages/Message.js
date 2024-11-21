@@ -97,7 +97,6 @@ export default function Message() {
       reconnectionDelayMax: 5000, 
       auth: { token: accessToken },  
     });
-    
     setSocket(newSocket);
     newSocket.on("connect", () => {
     });

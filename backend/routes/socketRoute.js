@@ -109,27 +109,6 @@ function websocketRoute(server) {
             }
             
             
-
-
-
-            // Handle sending a message to a group
-            // socket.on('sendGroupMessage', async (msg) => {
-            //     try {
-            //         const newMessage = await Message.create({
-            //             sender_id: msg.senderId,
-            //             group_id: msg.group_id,
-            //             content: msg.content,
-            //             timestamp: new Date(),
-            //             is_read: false,
-            //         });
-            //         broadcastGroupMessage(newMessage);
-            //     } catch (err) {
-            //         console.error('Error saving group message:', err);
-            //         socket.emit('error', { message: 'Group message send failed' });
-            //     }
-            // });
-
-            
             socket.on('sendGroupMessage', async (msg) => {
                 try {
                     // Validate incoming message data
@@ -252,6 +231,7 @@ function websocketRoute(server) {
                             groupMembers.splice(index, 1);
                         }
                     }
+                    // Remove user from active conversations
                     for (const otherUserId in activeConversations[socket.userId]) {
                         delete activeConversations[socket.userId][otherUserId];
                     }
