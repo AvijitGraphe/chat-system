@@ -243,8 +243,6 @@ function websocketRoute(server) {
               }
             });
 
-
-
             socket.on('joinCheckId', (checkId) => {
                 socket.join(checkId);
             });
@@ -270,9 +268,7 @@ function websocketRoute(server) {
                 }
             });
 
-            
-
-
+        
 
         // Function to broadcast active user list
         function broadcastActiveUsers() {

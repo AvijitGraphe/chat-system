@@ -535,6 +535,7 @@ export default function Message() {
               <strong style={{textTransform:"capitalize"}}>{receiverName}</strong>
             </div>
           )}
+          
           {showGroupName && getGroupId && (
             <div className="mb-2">
               <strong className="capitalize" style={{textTransform:"capitalize"}}>{showGroupName}</strong>
@@ -542,11 +543,12 @@ export default function Message() {
                 className="d-flex flex-row flex-wrap gap-2"
                 style={{ listStyleType: "none", paddingLeft: 0 }}
               >
+
                 {selectedGroup.length > 0 ? (
                   selectedGroup.map((user) => (
                     <li key={user.user_id}>
                       {user.user_id === parseInt(userId, 10) ? (
-                        <span>You</span>
+                        <span>You,</span>
                       ) : (
                         <span>{user.user_name},</span>
                       )}
