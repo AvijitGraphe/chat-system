@@ -88,6 +88,7 @@ export default function Message() {
         params: { userId, otherUserId: receiverId },
       });
       setMessages(response.data);
+      setReplyingTo([]);
     } catch (error) {
       console.error("Error fetching messages", error);
     }
@@ -98,7 +99,7 @@ export default function Message() {
     const socketUrl = `${protocol}${window.location.hostname}${
       window.location.port ? `:${window.location.port}` : ""
     }`;
-    const newSocket = io(socketUrl, {
+    const newSocket = io(`${config.apiUrl}`, {
       query: { token: accessToken },
       transports: ["websocket"],
       reconnection: true,
@@ -118,6 +119,11 @@ export default function Message() {
 
   useEffect(() => {
     if (socket) {
+      //message sender
+      const senderMessage = (newMessage) => {
+          setMessages((prevMessages) => [...prevMessages, newMessage]);
+      };
+      //message reciver
       const handleReceiveMessage = (newMessage) => {
         if (
           newMessage &&
@@ -146,11 +152,13 @@ export default function Message() {
         setActiveUsers(activeUsers);
       };
 
+      socket.on("senderMessage", senderMessage);
       socket.on("typing", handleTyping);
       socket.on("stopTyping", handleStopTyping);
       socket.on("receiveMessage", handleReceiveMessage);
       socket.on("activeUserList", handleActiveUserList);
       return () => {
+        socket.off("senderMessage", senderMessage);
         socket.off("receiveMessage", handleReceiveMessage);
         socket.off("typing");
         socket.off("stopTyping");
@@ -160,18 +168,7 @@ export default function Message() {
     }
   }, [socket, userId, checkId, activeGroup]);
 
-  //for sender message
-  useEffect(() => {
-    if (socket) {
-      const senderMessage = (newMessage) => {
-        setMessages((prevMessages) => [...prevMessages, newMessage]);
-      };
-      socket.on("senderMessage", senderMessage);
-      return () => {
-        socket.off("senderMessage", senderMessage);
-      };
-    }
-  }, [socket, userId]);
+
 
   useEffect(() => {
     fetchUserList();
@@ -180,13 +177,15 @@ export default function Message() {
   const handleGroupCreate = async () => {
     setShowCreateGroup(true);
   };
+
+  {/* close create group dialog */}
   const handleCloseDialog = () => {
     setShowCreateGroup(false);
     setSelectedUsers([]);
     setGroupName("");
   };
 
-  //create group lists
+  {/*create group lists */}
   const handleCreateGroup = async () => {
     if (!groupName || selectedUsers.length === 0) {
       alert("Please enter a group name and select at least one user.");
@@ -232,6 +231,7 @@ export default function Message() {
       setReceiverName([]);
       handleGetGroupMessages(group.group_id);
       setActiveGroup(group.group_id);
+      setReplyingTo([]);
       const response = await axios.get(`${config.apiUrl}/api/getGroupMembers`, {
         params: { groupId: group.group_id },
       });
@@ -257,8 +257,10 @@ export default function Message() {
       senderId: userId,
       receiverId,
       content: inputValue,
+      sender_name: userName,
       prevMessageId: replyingTo ? replyingTo.message_id : null,
       prevContent: replyingTo ? replyingTo.content : "",
+      rebackName: replyingTo ? replyingTo.sender_name : "",
       files:
         Array.isArray(file) && file.length > 0
           ? file.map((f) => ({
@@ -281,14 +283,12 @@ export default function Message() {
     }
   };
 
-  //handel join group
   const handleJoinGroup = (groupId) => {
     if (socket) {
       socket.emit("joinGroup", groupId);
     }
   };
 
-  //handel leave group
   const handleLeaveGroup = (groupId) => {
     if (socket) {
       socket.emit("leaveGroup", groupId);
@@ -363,7 +363,6 @@ export default function Message() {
       socket.emit("sendGroupMessage", messagePayload);
       setInputValue("");
       setFile([]);
-      setReplyingTo("");
     } catch (error) {
       console.error("Error sending group message:", error);
     }
@@ -380,6 +379,7 @@ export default function Message() {
       }, 1000);
     }
   };
+
 
   const handleReplyClick = (message) => {
     setReplyingTo(message); 
@@ -408,75 +408,53 @@ export default function Message() {
           </div>
 
           <div>
-            {/* Display the user list */}
+            {/* Display Users and Groups in One ListGroup */}
             <ListGroup
               variant="flush"
               className="overflow-auto"
-              style={{ height: "400px", backgroundColor: "#f9f9f9", textTransform: "capitalize",}}
+              style={{ height: "600px", backgroundColor: "#f9f9f9", textTransform: "capitalize" }}
             >
-              {userlist.length > 0 ? (
-                userlist.map((user) => (
+              {[
+                ...userlist.map((user) => ({ type: 'user', ...user })),
+                ...groups.map((group) => ({ type: 'group', ...group }))
+              ].length > 0 ? (
+                [
+                  ...userlist.map((user) => ({ type: 'user', ...user })),
+                  ...groups.map((group) => ({ type: 'group', ...group }))
+                ].map((item) => (
                   <ListGroup.Item
-                    key={user.user_id}
+                    key={item.type === 'user' ? item.user_id : item.group_id}
                     className={`cursor-pointer ${
-                      user.user_id === selectedUsers
-                        ? "bg-primary text-white"
-                        : ""
+                      (item.type === 'user' && item.user_id === selectedUsers) ||
+                      (item.type === 'group' && item.group_id === selectedGroup)
+                        ? 'bg-primary text-white'
+                        : ''
                     }`}
-                    onClick={() => handleUserClick(user)}
+                    onClick={() => item.type === 'user' ? handleUserClick(item) : handleGroupClick(item)}
                     style={{
                       backgroundColor: "#ffffff",
                       borderBottom: "1px solid #ddd",
                       position: "relative",
                     }}
                   >
-                    {/* Check if the user is active */}
-
-                    {activeUsers.some(
-                      (activeUser) =>
-                        String(activeUser.userId) === String(user.user_id)
+                    {/* Check if the user or group is active */}
+                    {item.type === 'user' && activeUsers.some(
+                      (activeUser) => String(activeUser.userId) === String(item.user_id)
                     ) && (
                       <span className="badge bg-success position-absolute top-0 end-0 m-2">
                         Active
                       </span>
                     )}
 
-                    {user.user_name}
+                    {item.type === 'user' ? item.user_name : item.group_name}
                   </ListGroup.Item>
                 ))
               ) : (
-                <ListGroup.Item>No users found</ListGroup.Item>
-              )}
-            </ListGroup>
-
-            {/* Display the group list */}
-            <ListGroup
-              variant="flush"
-              className="overflow-auto mt-4"
-              style={{ height: "200px", backgroundColor: "#f9f9f9", textTransform: "capitalize",}}
-            >
-              {groups.length > 0 ? (
-                groups.map((group) => (
-                  <ListGroup.Item
-                    key={group.group_id}
-                    style={{
-                      backgroundColor: "#ffffff",
-                      borderBottom: "1px solid #ddd",
-                    }}
-                    onClick={() => handleGroupClick(group)}
-                  >
-                    {group.group_name}
-                  </ListGroup.Item>
-                ))
-              ) : (
-                <ListGroup.Item>No groups found</ListGroup.Item>
+                <ListGroup.Item>No users or groups found</ListGroup.Item>
               )}
             </ListGroup>
           </div>
         </Col>
-
-        {/* Chat Box (User or Group) */}
-
         <Col
           md={8}
           className="d-flex flex-column bg-white rounded shadow-sm p-3"
@@ -523,135 +501,135 @@ export default function Message() {
 
           {/* Message Display Section */}
           <div
-              className="flex-grow-1 overflow-auto border border-light rounded p-3 mb-2"
-              style={{ height: "400px", backgroundColor: "#f1f1f1" }}
-              ref={chatcontainerRef}
-            >
+            className="flex-grow-1 overflow-auto border border-light rounded p-3 mb-2"
+            style={{ height: "400px", backgroundColor: "#f1f1f1" }}
+            ref={chatcontainerRef}
+          >
             {messages.length > 0 ? (
-              messages.map((msg) => (
-                <div
-                  key={msg.message_id}
-                  className={`d-flex mb-2 ${
-                    msg.sender_id === parseInt(userId, 10)
-                      ? "justify-content-end"
-                      : "justify-content-start"
-                  }`}
-                >
-                <div
-                  className="message-bubble p-2"
-                  style={{
-                    backgroundColor: msg.sender_id === parseInt(userId, 10) ? "#007bff" : "#f0f0f0",
-                    color: msg.sender_id === parseInt(userId, 10) ? "#fff" : "#000",
-                    borderRadius: "15px",
-                    maxWidth: "80%",
-                    position: "relative",
-                  }}
-                  onMouseEnter={() => setHoverMessage(msg.message_id)} 
-                  onMouseLeave={() => setHoverMessage(null)}
-                >
-                  {/* Displaying the Button */}
-                  <Button
-                    style={{
-                      position: "absolute",  
-                      left: msg.sender_id === parseInt(userId, 10) ? "0" : "auto",  
-                      right: msg.sender_id !== parseInt(userId, 10) ? "0" : "auto", 
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      visibility: hoverMessage === msg.message_id ? "visible" : "hidden", 
-                    }}
-                    onClick={() => handleReplyClick(msg)}  // Handle reply
+              messages.map((msg) => {
+                const isSender = parseInt(msg.sender_id, 10) === parseInt(userId, 10); 
+                return (
+                  <div
+                    key={msg.message_id}
+                    className={`d-flex mb-2 ${isSender ? "justify-content-end" : "justify-content-start"}`}
                   >
-                    Reply
-                  </Button>
-                  {/* Reply content (if any) */}
-                  {msg.prevContent && (
-                    <div className="reply-content" style={{ marginBottom: "10px", padding: "10px", backgroundColor: "#BEB8B8FF", borderRadius: "5px" }}>
-                      <strong>Replying to:</strong>
-                      <p>{msg.sender_name}</p>
-                      <p>{msg.prevContent}</p>
+                    <div
+                      className="message-bubble p-2"
+                      style={{
+                        backgroundColor: isSender ? "#007bff" : "#f0f0f0",
+                        color: isSender ? "#fff" : "#000",
+                        borderRadius: "15px",
+                        maxWidth: "80%",
+                        position: "relative",
+                      }}
+                      onMouseEnter={() => setHoverMessage(msg.message_id)} 
+                      onMouseLeave={() => setHoverMessage(null)}
+                    >
+                      {/* Displaying the Button */}
+                      <Button
+                        style={{
+                          position: "absolute",  
+                          left: isSender ? "0" : "auto",  
+                          right: !isSender ? "0" : "auto", 
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          visibility: hoverMessage === msg.message_id ? "visible" : "hidden", 
+                        }}
+                        onClick={() => handleReplyClick(msg)}  // Handle reply
+                      >
+                        Reply
+                      </Button>
+                      {/* Reply content (if any) */}
+                      {msg.prevContent && (
+                        <div className="reply-content" style={{ marginBottom: "10px", padding: "10px", backgroundColor: "#BEB8B8FF", borderRadius: "5px" }}>
+                          <strong>Replying to:</strong>
+                          <p>{msg.rebackName}</p>
+                          <p>{msg.prevContent}</p>
+                        </div>
+                      )}
+                      {/* Message Sender Name */}
+                      <strong>
+                        {isSender ? "You" : msg.sender_name}
+                      </strong>
+                      {/* Message Content */}
+                      <p>{msg.content}</p>
+                      {/* Display Files (if any) */}
+                      {msg.files && msg.files.length > 0 && (
+                        <div className="mt-2">
+                          <ul style={{ listStyleType: "none", paddingLeft: "0" }}>
+                            {msg.files.map((file) => (
+                              <li key={file.file_id}>
+                                {/* File type handling */}
+                                {file.file_name && (
+                                  <>
+                                    {/* If the file is an image */}
+                                    {file.file_name.match(/\.(jpg|jpeg|png|gif)$/i) && (
+                                      <div className="mt-2">
+                                        <img
+                                          src={`${fileUrl}/${file.file_name}`}
+                                          alt="Uploaded file"
+                                          style={{
+                                            maxWidth: "200px",
+                                            maxHeight: "200px",
+                                          }}
+                                        />
+                                      </div>
+                                    )}
+
+                                    {/* If the file is a PDF */}
+                                    {file.file_name.match(/\.(pdf)$/i) && (
+                                      <div className="mt-2">
+                                        <a
+                                          href={file.file_url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                        >
+                                          <strong>View PDF</strong>
+                                        </a>
+                                      </div>
+                                    )}
+
+                                    {/* If the file is an Excel file */}
+                                    {file.file_name.match(/\.(xls|xlsx)$/i) && (
+                                      <div className="mt-2">
+                                        <a
+                                          href={file.file_url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                        >
+                                          <strong>View Excel File</strong>
+                                        </a>
+                                      </div>
+                                    )}
+
+                                    {/* Default fallback for other file types */}
+                                    {!file.file_name.match(/\.(jpg|jpeg|png|gif|pdf|xls|xlsx)$/i) && (
+                                      <div className="mt-2">
+                                        <a
+                                          href={file.file_url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                        >
+                                          <strong>Download File</strong>
+                                        </a>
+                                      </div>
+                                    )}
+                                  </>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
-                  )}
-                  {/* Message Sender Name */}
-                  <strong>
-                    {msg.sender_id === parseInt(userId, 10) ? "You" : msg.sender_name}
-                  </strong>
-                  {/* Message Content */}
-                  <p>{msg.content}</p>
-                  {/* Display Files (if any) */}
-                  {msg.files && msg.files.length > 0 && (
-                    <div className="mt-2">
-                      <ul style={{ listStyleType: "none", paddingLeft: "0" }}>
-                        {msg.files.map((file) => (
-                          <li key={file.file_id}>
-                            {/* File type handling */}
-                            {file.file_name && (
-                              <>
-                                {/* If the file is an image */}
-                                {file.file_name.match(/\.(jpg|jpeg|png|gif)$/i) && (
-                                  <div className="mt-2">
-                                    <img
-                                      src={`${fileUrl}/${file.file_name}`}
-                                      alt="Uploaded file"
-                                      style={{
-                                        maxWidth: "200px",
-                                        maxHeight: "200px",
-                                      }}
-                                    />
-                                  </div>
-                                )}
-
-                                {/* If the file is a PDF */}
-                                {file.file_name.match(/\.(pdf)$/i) && (
-                                  <div className="mt-2">
-                                    <a
-                                      href={file.file_url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                    >
-                                      <strong>View PDF</strong>
-                                    </a>
-                                  </div>
-                                )}
-
-                                {/* If the file is an Excel file */}
-                                {file.file_name.match(/\.(xls|xlsx)$/i) && (
-                                  <div className="mt-2">
-                                    <a
-                                      href={file.file_url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                    >
-                                      <strong>View Excel File</strong>
-                                    </a>
-                                  </div>
-                                )}
-
-                                {/* Default fallback for other file types */}
-                                {!file.file_name.match(/\.(jpg|jpeg|png|gif|pdf|xls|xlsx)$/i) && (
-                                  <div className="mt-2">
-                                    <a
-                                      href={file.file_url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                    >
-                                      <strong>Download File</strong>
-                                    </a>
-                                  </div>
-                                )}
-                              </>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-                </div>
-              ))
+                  </div>
+                );
+              })
             ) : (
               <div>No messages yet.</div>
             )}
           </div>
+
 
           {/* Message Input Section */}
 
@@ -690,13 +668,14 @@ export default function Message() {
 
                 <Col>
 
-                  {replyingTo && (
-                    <div className="replying-to">
-                      <strong>Replying to:</strong> 
-                      <p className="p-0 p-0">{replyingTo.sender_name}</p>
-                      <p className="px-4 top-0 bottom-0">{replyingTo.content}</p>
-                    </div>
-                  )}
+                {replyingTo && replyingTo.sender_name && replyingTo.content && (
+                  <div className="replying-to">
+                    <strong>Replying to:</strong> 
+                    <p className="p-0 m-0">{replyingTo.sender_name}</p>
+                    <p className="px-4">{replyingTo.content}</p>
+                  </div>
+                )}
+
                   
                   <Form.Control
                     type="text"
@@ -786,10 +765,7 @@ export default function Message() {
 
         </Col>
       </Row>
-
       {/* Create Group Dialog */}
-
-
       <Dialog
         header="Create New Group"
         visible={showCreateGroup}
@@ -851,8 +827,6 @@ export default function Message() {
         </Card>
 
       </Dialog>
-
-
     </Container>
   );
 }

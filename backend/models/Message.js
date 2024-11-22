@@ -53,6 +53,15 @@ const Message = sequelize.define("Message", {
     type: DataTypes.STRING,
     allowNull: true,
   },
+  sender_name: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  rebackName: {
+    type: DataTypes.STRING,
+    defaultValue: "",
+    allowNull: true,
+  },
 }, {
   timestamps: true, 
   tableName: "Message",

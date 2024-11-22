@@ -188,6 +188,7 @@ router.get('/getMessages', async (req, res) => {
                     timestamp: msg.created_at,
                     prevContent: msg.prevContent,
                     prevMessageId: msg.prevMessageId,
+                    rebackName: msg.rebackName,
                     files: files.map(file => ({
                         file_id: file.file_id,
                         file_name: file.file_name
@@ -315,6 +316,7 @@ router.get('/getGroupMessages', async (req, res) => {
                     content: msg.content,
                     prevContent: msg.prevContent,
                     prevMessageId: msg.prevMessageId,
+                    rebackName: msg.rebackName,
                     timestamp: msg.createdAt, 
                     files: files.map(file => ({
                         file_id: file.file_id,

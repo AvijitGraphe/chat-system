@@ -51,6 +51,8 @@ function websocketRoute(server) {
                         content: msg.content,
                         prevMessageId: msg.prevMessageId,
                         prevContent: msg.prevContent,
+                        sender_name: msg.sender_name,
+                        rebackName: msg.rebackName,
                         timestamp: new Date(),
                         is_read: false,
                     });
@@ -83,14 +85,20 @@ function websocketRoute(server) {
                     receiver_id: message.receiver_id,
                     prevContent: message.prevContent,
                     content: message.content,
+                    sender_name: message.sender_name,
+                    rebackName: message.rebackName,
                     timestamp: message.timestamp,
                     files: filePaths || [], 
                 };
+
                 if (clients[message.sender_id]) {
                     clients[message.sender_id].emit('senderMessage', messageData);
+                     console.log("senderMessage", messageData);
                 }
+                
                 if (clients[message.receiver_id]) {
                     clients[message.receiver_id].emit('receiveMessage', messageData);
+                    console.log("reciverMessage", messageData);
                 }
             }
             
