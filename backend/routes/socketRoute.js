@@ -116,6 +116,8 @@ function websocketRoute(server) {
                         content: msg.content,
                         prevMessageId: msg.prevMessageId,
                         prevContent: msg.prevContent,
+                        sender_name: msg.sender_name,
+                        rebackName: msg.rebackName,
                         timestamp: new Date(),
                         is_read: false,
                     });
@@ -151,6 +153,8 @@ function websocketRoute(server) {
                     content: message.content,
                     prevContent: message.prevContent,
                     content: message.content,
+                    sender_name: message.sender_name,
+                    rebackName: message.rebackName,
                     timestamp: message.timestamp,
                     files: files || [], 
                 };
@@ -222,7 +226,7 @@ function websocketRoute(server) {
 
 
             const typingUsers = {};
-            socket.on('typing', (groupId, userId, userName) => {
+            socket.on('typing', (groupId, userId, userName, checkId) => {
               if (!typingUsers[groupId]) {
                 typingUsers[groupId] = [];
               }

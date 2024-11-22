@@ -68,6 +68,7 @@ export default function Message() {
 
   const handleUserClick = (user) => {
     // Reset group-related data
+    setGetGroupId(null);
     setIsShow(true);
     setGetGroupId(null);
     setShowGroupName("");
@@ -218,7 +219,7 @@ export default function Message() {
     }
   };
 
-  // Handle group click
+  // Handle group data send 
   const handleGroupClick = async (group) => {
     try {
       setIsShow(true);
@@ -232,6 +233,8 @@ export default function Message() {
       handleGetGroupMessages(group.group_id);
       setActiveGroup(group.group_id);
       setReplyingTo([]);
+      setCheckId(null);
+      setInputValue("");
       const response = await axios.get(`${config.apiUrl}/api/getGroupMembers`, {
         params: { groupId: group.group_id },
       });
@@ -345,9 +348,10 @@ export default function Message() {
       senderId: userId,
       groupId: getGroupId,
       content: inputValue,
-      
       prevMessageId: replyingTo ? replyingTo.message_id : null,
       prevContent: replyingTo ? replyingTo.content : "",
+      sender_name: userName,
+      rebackName: replyingTo ? replyingTo.sender_name : "",
 
       files:
         Array.isArray(file) && file.length > 0
@@ -371,12 +375,19 @@ export default function Message() {
   const handleInputChange = (e) => {
     setInputValue(e.target.value);
     if (e.target.value.length > 0) {
-      socket.emit("typing", getGroupId, userId, userName);
+
+      socket.emit("typing", getGroupId, userId, userName, checkId);
+
+      console.log(getGroupId, userId, userName, checkId);
+      
       setTyping(true);
+
       setTimeout(() => {
         socket.emit("stopTyping", getGroupId, userId, userName);
         setTyping(false);
       }, 1000);
+
+
     }
   };
 
