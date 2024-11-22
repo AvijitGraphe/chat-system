@@ -93,12 +93,10 @@ function websocketRoute(server) {
 
                 if (clients[message.sender_id]) {
                     clients[message.sender_id].emit('senderMessage', messageData);
-                     console.log("senderMessage", messageData);
                 }
                 
                 if (clients[message.receiver_id]) {
                     clients[message.receiver_id].emit('receiveMessage', messageData);
-                    console.log("reciverMessage", messageData);
                 }
             }
             
@@ -236,7 +234,6 @@ function websocketRoute(server) {
                 typingUsers[groupId].push({ userId, userName });
               }
               socket.to(groupId).emit('typing', groupId, typingUsers[groupId]);
-              console.log(groupId, typingUsers[groupId]);
             });
             // Stop typing event handler
             socket.on('stopTyping', (groupId, userId, userName) => {
@@ -246,28 +243,33 @@ function websocketRoute(server) {
               }
             });
 
-            // Typing event handler with checkId and userId
-            socket.on('userTyping', (userId, userName, checkId) => {                
+
+
+            socket.on('joinCheckId', (checkId) => {
+                socket.join(checkId);
+            });
+            
+            socket.on('userTyping', (userId, userName, checkId) => {
                 if (!typingUsers[checkId]) {
-                typingUsers[checkId] = [];
+                    typingUsers[checkId] = [];
                 }
                 const userExists = typingUsers[checkId].some(user => user.userId === userId);
                 if (!userExists) {
-                typingUsers[checkId].push({ userId, userName });
+                    typingUsers[checkId].push({ userId, userName });
                 }
-                socket.to(checkId).emit('typing', checkId, typingUsers[checkId]);
-                console.log(checkId, typingUsers[checkId]);
-                
+                io.to(checkId).emit('userTyping', checkId, typingUsers[checkId]);
             });
             
-            // Stop typing event handler
-            socket.on('userStopTyping', (userId, checkId) => {
+            socket.on('stopTyping', (userId, checkId) => {
                 if (typingUsers[checkId]) {
-                typingUsers[checkId] = typingUsers[checkId].filter(user => user.userId !== userId);
-                socket.to(checkId).emit('stopTyping', checkId, typingUsers[checkId]);
+                    // Remove the user from the typing list
+                    typingUsers[checkId] = typingUsers[checkId].filter(user => user.userId !== userId);
+            
+                    // Emit the updated typing list to the checkId room
+                    socket.to(checkId).emit('stopTyping', checkId, typingUsers[checkId]);
                 }
             });
-            
+
             
 
 

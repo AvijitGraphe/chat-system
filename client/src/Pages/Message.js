@@ -41,6 +41,7 @@ export default function Message() {
   const [replyingTo, setReplyingTo] = useState(null);
   const [getUserIdActive, setGetUserIdActive] = useState(null);
 
+
   //chat contaienr ref..
   const chatcontainerRef = useRef(null)
 
@@ -80,6 +81,7 @@ export default function Message() {
     setShow(true);
     setCheckId(user.user_id);
     setGetUserIdActive(user.user_id);
+    handleCheckId(user.user_id);
   };
 
   // Fetch chat messages from the server
@@ -100,7 +102,7 @@ export default function Message() {
     const socketUrl = `${protocol}${window.location.hostname}${
       window.location.port ? `:${window.location.port}` : ""
     }`;
-    const newSocket = io(`${config.apiUrl}`, {
+    const newSocket = io(socketUrl, {
       query: { token: accessToken },
       transports: ["websocket"],
       reconnection: true,
@@ -119,7 +121,7 @@ export default function Message() {
   }, [accessToken]);
 
   useEffect(() => {
-    if (socket) {
+    if (socket) {   
       //message sender
       const senderMessage = (newMessage) => {
           setMessages((prevMessages) => [...prevMessages, newMessage]);
@@ -137,18 +139,14 @@ export default function Message() {
           }
         }
       };
-      
       // Typing event handler
-      const handleTyping = (groupId, users, checkId) => {
+      const handleTyping = (groupId, users) => {
         if (groupId === parseInt(activeGroup, 10)) {
           setTypingUsers(users.map((user) => user.userName));
         } else {
           setTypingUsers([]);
         }
       };
-
-
-
       // Stop typing event handler
       const handleStopTyping = (groupId, users) => {
         setTypingUsers([]);
@@ -156,24 +154,51 @@ export default function Message() {
       const handleActiveUserList = (activeUsers) => {
         setActiveUsers(activeUsers);
       };
-
       socket.on("senderMessage", senderMessage);
       socket.on("typing", handleTyping);
       socket.on("stopTyping", handleStopTyping);
       socket.on("receiveMessage", handleReceiveMessage);
       socket.on("activeUserList", handleActiveUserList);
+
       return () => {
         socket.off("senderMessage", senderMessage);
         socket.off("receiveMessage", handleReceiveMessage);
         socket.off("typing");
         socket.off("stopTyping");
-        socket.off("userTyping");
         socket.off("userStopTyping");
         socket.off("activeUserId");
         socket.off("activeUserList");
       };
     }
-  }, [socket, userId, checkId, activeGroup, getUserIdActive]);
+  }, [socket, userId, checkId, activeGroup]);
+
+
+  useEffect(() => {
+    if (socket) {
+        socket.on('userTyping', (incomingCheckId, typingUsers) => {
+          if(incomingCheckId === parseInt(checkId, 10)) {
+            setTypingUsers(typingUsers.map((user) => user.userName));
+          }else{
+            return null;
+          }
+        });
+        socket.on('userStopTyping', (incomingCheckId, typingUsers) => {
+            setTypingUsers([]);
+        });
+
+
+        socket.on('stopTyping', (incomingCheckId, typingUsers) => {   
+          setTypingUsers([]);            
+        });
+        return () => {
+            socket.off('userTyping');
+            socket.off('stopTyping');
+        };
+    }
+}, [socket]);
+
+
+
 
 
 
@@ -303,7 +328,12 @@ export default function Message() {
       socket.emit("leaveGroup", groupId);
     }
   };
-
+  
+  const handleCheckId = (checkId) => {
+    if (socket) {
+      socket.emit("joinCheckId", checkId);
+    }
+  };
   // Handle receiving a group message
   useEffect(() => {
     if (socket) {
@@ -383,7 +413,6 @@ export default function Message() {
 
   const handleInputChange = (e) => {
     setInputValue(e.target.value);
-  
     // If there is text input
     if (e.target.value.length > 0) {
       if (getGroupId) {
