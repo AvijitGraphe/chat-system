@@ -39,6 +39,7 @@ export default function Message() {
   const [activeGroup, setActiveGroup] = useState(null);
   const [hoverMessage, setHoverMessage] = useState(null);
   const [replyingTo, setReplyingTo] = useState(null);
+  const [getUserIdActive, setGetUserIdActive] = useState(null);
 
   //chat contaienr ref..
   const chatcontainerRef = useRef(null)
@@ -67,8 +68,6 @@ export default function Message() {
   };
 
   const handleUserClick = (user) => {
-    // Reset group-related data
-    setGetGroupId(null);
     setIsShow(true);
     setGetGroupId(null);
     setShowGroupName("");
@@ -80,6 +79,7 @@ export default function Message() {
     fetchMessages(userId, user.user_id);
     setShow(true);
     setCheckId(user.user_id);
+    setGetUserIdActive(user.user_id);
   };
 
   // Fetch chat messages from the server
@@ -137,14 +137,18 @@ export default function Message() {
           }
         }
       };
+      
       // Typing event handler
-      const handleTyping = (groupId, users) => {
+      const handleTyping = (groupId, users, checkId) => {
         if (groupId === parseInt(activeGroup, 10)) {
           setTypingUsers(users.map((user) => user.userName));
         } else {
           setTypingUsers([]);
         }
       };
+
+
+
       // Stop typing event handler
       const handleStopTyping = (groupId, users) => {
         setTypingUsers([]);
@@ -163,11 +167,13 @@ export default function Message() {
         socket.off("receiveMessage", handleReceiveMessage);
         socket.off("typing");
         socket.off("stopTyping");
+        socket.off("userTyping");
+        socket.off("userStopTyping");
         socket.off("activeUserId");
         socket.off("activeUserList");
       };
     }
-  }, [socket, userId, checkId, activeGroup]);
+  }, [socket, userId, checkId, activeGroup, getUserIdActive]);
 
 
 
@@ -367,30 +373,53 @@ export default function Message() {
       socket.emit("sendGroupMessage", messagePayload);
       setInputValue("");
       setFile([]);
+      setReplyingTo("");
     } catch (error) {
       console.error("Error sending group message:", error);
     }
   };
 
+  let typingTimeout; 
+
   const handleInputChange = (e) => {
     setInputValue(e.target.value);
+  
+    // If there is text input
     if (e.target.value.length > 0) {
-
-      socket.emit("typing", getGroupId, userId, userName, checkId);
-
-      console.log(getGroupId, userId, userName, checkId);
-      
-      setTyping(true);
-
-      setTimeout(() => {
-        socket.emit("stopTyping", getGroupId, userId, userName);
+      if (getGroupId) {
+        socket.emit("typing", getGroupId, userId, userName);
+        setTyping(true);
+      } else if (checkId) {
+        socket.emit("userTyping", userId, userName, checkId);
+        setTyping(true);
+      } else {
+        return null;
+      }
+  
+      // Clear previous timeout, then set a new one
+      clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(() => {
+        if (getGroupId) {
+          socket.emit("stopTyping", getGroupId, userId, userName);
+        } else if (checkId) {
+          socket.emit("userStopTyping", userId, userName, checkId);
+        }
         setTyping(false);
       }, 1000);
-
-
+  
+    } else {
+      // If input is cleared, stop typing immediately
+      clearTimeout(typingTimeout);
+      if (getGroupId) {
+        socket.emit("stopTyping", getGroupId, userId, userName);
+      } else if (checkId) {
+        socket.emit("userStopTyping", userId, userName, checkId);
+      }
+      setTyping(false);
     }
   };
-
+  
+  
 
   const handleReplyClick = (message) => {
     setReplyingTo(message); 
@@ -465,6 +494,8 @@ export default function Message() {
               )}
             </ListGroup>
           </div>
+
+
         </Col>
         <Col
           md={8}
@@ -499,16 +530,20 @@ export default function Message() {
             </div>
           )}
 
+
           {/* Typing indicator */}
           {typingUsers.length > 0 && (
             <div className="mb-2">
-              <p style={{textTransform:"capitalize" , color:"#0FE461FF"}}>
-                {typingUsers.length === 1
-                  ? `${typingUsers[0]} is typing...`
-                  : `${typingUsers.join(", ")} are typing...`}
-              </p>
+              <ul>
+                {typingUsers.map((user, index) => (
+                  <li key={`${user}-${index}`} style={{ textTransform: "capitalize", color: "#0FE461FF" }}>
+                    {user} is typing...
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
+
 
           {/* Message Display Section */}
           <div

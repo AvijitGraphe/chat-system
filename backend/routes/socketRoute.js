@@ -225,8 +225,9 @@ function websocketRoute(server) {
             });
 
 
+            // Typing event handler with groupId
             const typingUsers = {};
-            socket.on('typing', (groupId, userId, userName, checkId) => {
+            socket.on('typing', (groupId, userId, userName) => {
               if (!typingUsers[groupId]) {
                 typingUsers[groupId] = [];
               }
@@ -235,14 +236,42 @@ function websocketRoute(server) {
                 typingUsers[groupId].push({ userId, userName });
               }
               socket.to(groupId).emit('typing', groupId, typingUsers[groupId]);
+              console.log(groupId, typingUsers[groupId]);
             });
+            // Stop typing event handler
             socket.on('stopTyping', (groupId, userId, userName) => {
               if (typingUsers[groupId]) {
                 typingUsers[groupId] = typingUsers[groupId].filter(user => user.userId !== userId);
                 socket.to(groupId).emit('stopTyping', groupId, typingUsers[groupId]);
               }
             });
+
+            // Typing event handler with checkId and userId
+            socket.on('userTyping', (userId, userName, checkId) => {                
+                if (!typingUsers[checkId]) {
+                typingUsers[checkId] = [];
+                }
+                const userExists = typingUsers[checkId].some(user => user.userId === userId);
+                if (!userExists) {
+                typingUsers[checkId].push({ userId, userName });
+                }
+                socket.to(checkId).emit('typing', checkId, typingUsers[checkId]);
+                console.log(checkId, typingUsers[checkId]);
+                
+            });
             
+            // Stop typing event handler
+            socket.on('userStopTyping', (userId, checkId) => {
+                if (typingUsers[checkId]) {
+                typingUsers[checkId] = typingUsers[checkId].filter(user => user.userId !== userId);
+                socket.to(checkId).emit('stopTyping', checkId, typingUsers[checkId]);
+                }
+            });
+            
+            
+
+
+
         // Function to broadcast active user list
         function broadcastActiveUsers() {
             const activeUsers = Object.keys(clients).map(userId => {
