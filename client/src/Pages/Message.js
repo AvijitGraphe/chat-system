@@ -281,12 +281,14 @@ export default function Message() {
     }
   };
 
+  //handel join group
   const handleJoinGroup = (groupId) => {
     if (socket) {
       socket.emit("joinGroup", groupId);
     }
   };
 
+  //handel leave group
   const handleLeaveGroup = (groupId) => {
     if (socket) {
       socket.emit("leaveGroup", groupId);
@@ -361,6 +363,7 @@ export default function Message() {
       socket.emit("sendGroupMessage", messagePayload);
       setInputValue("");
       setFile([]);
+      setReplyingTo("");
     } catch (error) {
       console.error("Error sending group message:", error);
     }
