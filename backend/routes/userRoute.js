@@ -332,7 +332,75 @@ router.get('/getGroupMessages', async (req, res) => {
     }
 });
 
-  
+
+router.get('/getMessageLength', async (req, res) => {
+    try {
+       const { userId } = req.query;
+       const messages = await Message.findAll({
+           where: {
+               receiver_id: userId,  
+               status: 'uncheck',    
+           }
+       });
+
+       const messageCounts = messages.reduce((acc, message) => {
+           const sender = message.sender_id;  
+           const receiver = message.receiver_id;  
+           const key = `${sender} to ${receiver}`;
+           if (!acc[key]) {
+               acc[key] = 0;
+           }
+           acc[key]++;
+
+           return acc;
+       }, {});
+
+       const resultArray = Object.entries(messageCounts).map(([key, value]) => {
+           const [sender, receiver] = key.split(" to ");  
+           return { [sender]: value };  
+       });
+       res.status(200).json(resultArray)
+    } catch (error) {
+       console.error("Error fetching messages:", error);
+       res.status(500).json({ error: "Failed to retrieve messages" });
+    }
+ });
+ 
+ 
+ router.get('/getClearMessage', async (req, res) => {
+    try {
+        const { userId } = req.query;
+        // Fetch all unchecked messages for the sender
+        const messages = await Message.findAll({
+            where: {
+                sender_id: userId,
+                status: 'uncheck',  
+            }
+        });
+        if (messages.length === 0) {
+            return res.status(404).json({ message: 'No unchecked messages found' });
+        }
+        const [updatedCount] = await Message.update(
+            { status: 'check' },
+            {
+                where: {
+                    sender_id: userId,
+                    status: 'uncheck',
+                }
+            }
+        );
+        if (updatedCount === 0) {
+            return res.status(400).json({ message: 'No messages were updated' });
+        }
+        res.status(200).json({ message: 'Messages unchecked successfully', updatedCount });
+    } catch (error) {
+        console.error("Error fetching messages:", error);
+        res.status(500).json({ error: "Failed to clear messages" });
+    }
+});
+
+
+
   
 
 

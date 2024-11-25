@@ -44,6 +44,7 @@ function websocketRoute(server) {
             // Initialize active conversations for the user
             activeConversations[userId] = activeConversations[userId] || {};
 
+            //user
             socket.on('sendMessage', async (msg) => {
                 
                 try {
@@ -105,7 +106,29 @@ function websocketRoute(server) {
                 }
             }
             
+            //messagen recived response by reicever
+            socket.on('respone', async (msg) => {
+                console.log("response", msg);
+                try {
+                    const logResponse = await Message.update({
+                        status: 'check',
+                    }, {where: {message_id: msg.message_id}});
+                    console.log("logResponse", logResponse);
+                } catch (error) {
+                    console.error('Error updating message:', error);
+                }
+            })
+
+
             
+            
+
+
+
+
+
+
+
             socket.on('sendGroupMessage', async (msg) => {
                 try {
                     if (!msg.senderId || !msg.content || !msg.groupId) {
@@ -146,6 +169,7 @@ function websocketRoute(server) {
                 }
             });
             
+
 
             // Function to broadcast the message to all users in the group
             function broadcastGroupMessage(message, files) {

@@ -62,6 +62,11 @@ const Message = sequelize.define("Message", {
     defaultValue: "",
     allowNull: true,
   },
+  status: {
+    type: DataTypes.ENUM('check', 'uncheck'), // Enum type for status
+    defaultValue: 'uncheck', // Default value if not specified
+    allowNull: false,
+  },
 }, {
   timestamps: true, 
   tableName: "Message",

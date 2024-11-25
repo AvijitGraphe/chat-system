@@ -64,6 +64,7 @@ export default function Message() {
         }
       );
       setUserlist(response.data);
+      // handleShowLength(userId);
     } catch (error) {
       console.error("Error fetching user list", error);
     }
@@ -85,17 +86,36 @@ export default function Message() {
     handleCheckId(user.user_id);
 
     clearStoreMessage(user.user_id);
+
+
   };
 
 
   //clear the store message
-  const clearStoreMessage = (clearId) => {
-    const updatedMessages = storeMessage.filter(
-      (message) => parseInt(message.sender_id, 10) !== clearId
-    );
-    
-    setStoreMessage(updatedMessages);
-  };
+
+
+
+
+
+  const clearStoreMessage = async (userId) => {
+    try {
+        const response = await axios.get(`${config.apiUrl}/api/getClearMessage`, {
+            params: { userId },
+        });
+        console.log(response.data);
+        setStoreMessage(response.data);
+    } catch (error) {
+        console.error("Error clearing messages:", error);
+    }
+};
+
+
+
+
+
+
+
+
 
   // Fetch chat messages from the server
   const fetchMessages = async (userId, receiverId) => {
@@ -145,9 +165,16 @@ export default function Message() {
 
       //message reciver with used id and not the current user
         const handleReceiveMessage = (newMessage) => {
+
+          //sotre the message
           if (parseInt(newMessage.sender_id, 10) !== parseInt(checkId, 10)) {
-            setStoreMessage((prevMessages) => [...prevMessages, newMessage]);
-        }
+
+            // setStoreMessage((prevMessages) => [...prevMessages, newMessage]);
+            // handleShowLength(userId);
+
+            handleShowLength(userId);
+
+          }
         
         //length of the store message
         if (
@@ -167,14 +194,6 @@ export default function Message() {
         }
       };
 
-
-
-      //response message
-      const responseMessage= (newMessage) => {
-        console.log("responseMessage +++responseMessage", newMessage);
-        
-      };
-
       // Typing event handler
       const handleTyping = (groupId, users) => {
         if (groupId === parseInt(activeGroup, 10)) {
@@ -190,6 +209,7 @@ export default function Message() {
       const handleActiveUserList = (activeUsers) => {
         setActiveUsers(activeUsers);
       };
+
 
       socket.on("senderMessage", senderMessage);
       socket.on("typing", handleTyping);
@@ -210,10 +230,37 @@ export default function Message() {
   }, [socket, userId, checkId, activeGroup]);
 
 
+
+
+    //response message
+    const responseMessage= (newMessage) => {
+      if(socket){
+        socket.emit('respone', newMessage);
+        console.log(newMessage);
+      }else{
+        console.log("no data response")
+      }
+    };
+
+
+
   useEffect(() => {
     fetchUserList();
     handleShowGroups(userId);
+    handleShowLength(userId);
   }, [userId]);
+
+
+  const handleShowLength = async (userId) => {      
+    const response = await axios.get(`${config.apiUrl}/api/getMessageLength`, {
+      params: { userId },
+    });    
+    setStoreMessage(response.data); 
+  };
+  
+
+
+
   const handleGroupCreate = async () => {
     setShowCreateGroup(true);
   };
@@ -236,7 +283,7 @@ export default function Message() {
       selectedUsers: selectedUsers,
       userId: userId,
     };
-    const response = await axios.post(
+    await axios.post(
       `${config.apiUrl}/api/createGroup`,
       payload
     );
@@ -524,18 +571,47 @@ export default function Message() {
 
                         {/* Display green dot if the user is the sender of any message */}
                         
-                         {item.type === 'user' && storeMessage.some(message => parseInt(message.sender_id, 10) === item.user_id && parseInt(message.sender_id, 10) !== checkId) &&  (
+                         {/* {item.type === 'user' && storeMessage.some(message => parseInt(message.sender_id, 10) === item.user_id && parseInt(message.sender_id, 10) !== checkId) &&  (
                           <span className="dot-indicator position-absolute top-0 start-0 m-2" style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "green" }}>
 
                           </span>
                         )}  
 
-                        {/* Display the length of sender_id */}
+
+
+
                         {item.type === 'user' && storeMessage.some(message => parseInt(message.sender_id, 10) === item.user_id && parseInt(message.sender_id, 10) !== checkId) && (
                           <span className="sender-id-length position-absolute top-0 start-25 m-2" style={{ fontSize: "12px", color: "green" }}>
                             {storeMessage.filter(message => parseInt(message.sender_id, 10) === item.user_id).length}
                           </span>
-                        )}
+                        )} */}
+
+
+{
+  item.type === 'user' && Array.isArray(storeMessage) && storeMessage.some(message => {
+    const messageKey = Object.keys(message)[0];
+    return parseInt(messageKey, 10) === item.user_id && parseInt(messageKey, 10) !== checkId;
+  }) && (
+    <span className="dot-indicator position-absolute top-0 start-0 m-2" style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "green" }}></span>
+  )
+}
+
+{/* Display the length of sender_id */}
+{
+  item.type === 'user' && Array.isArray(storeMessage) && storeMessage.some(message => {
+    const messageKey = Object.keys(message)[0];
+    return parseInt(messageKey, 10) === item.user_id && parseInt(messageKey, 10) !== checkId;
+  }) && (
+    <span className="sender-id-length position-absolute top-0 start-25 m-2" style={{ fontSize: "12px", color: "green" }}>
+      {
+        storeMessage.find(message => Object.keys(message)[0] === String(item.user_id))?.[item.user_id] || 0
+      }
+    </span>
+  )
+}
+
+
+
           
                         {/* Check if the user or group is active */}
                         {item.type === 'user' && activeUsers.some(
