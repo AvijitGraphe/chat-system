@@ -27,7 +27,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // WebSocket setup
-WebSocket(server); // Initialize WebSocket
+WebSocket(server); 
 
 // Use routes
 app.use("/api", userRoutes);

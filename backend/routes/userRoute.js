@@ -72,21 +72,17 @@ router.post("/signup", async (req, res) => {
 });
 
 // Get User List
-
-
 router.get('/getUser', authenticateToken, async (req, res) => {
     const userId = req.query.userId;
     if (!userId) {
         return res.status(400).json({ error: 'userId is required' });
     }
     try {
-        // Fetch all users except the one matching the userId
         const users = await User.findAll({
             where: {
-                user_id: { [Sequelize.Op.ne]: userId } // Exclude the current user
+                user_id: { [Sequelize.Op.ne]: userId } 
             }
         });
-        // Return the list of users excluding the current user
         res.status(200).json(users);
     } catch (error) {
         console.error('Error fetching users:', error);
@@ -139,9 +135,7 @@ router.get('/getMessages', async (req, res) => {
     if (!userId || !otherUserId) {
         return res.status(400).json({ error: 'Both userId and otherUserId are required' });
     }
-
     try {
-        // Fetch messages between the two users
         const messages = await Message.findAll({
             where: {
                 [Op.or]: [
@@ -168,16 +162,11 @@ router.get('/getMessages', async (req, res) => {
         if (messages.length === 0) {
             return res.status(200).json([]);
         }
-        
-        // Fetch associated files for each message asynchronously
         const messagesWithFiles = await Promise.all(
             messages.map(async (msg) => {
-                // Fetch the files related to this message
                 const files = await ChatFile.findAll({
                     where: { message_id: msg.message_id }
                 });
-
-                // Enrich the message data with the file info
                 return {
                     message_id: msg.message_id,
                     sender_id: msg.sender_id,
@@ -196,8 +185,6 @@ router.get('/getMessages', async (req, res) => {
                 };
             })
         );
-
-        // Return the enriched messages with files
         res.json(messagesWithFiles);
     } catch (error) {
         console.error("Error fetching messages:", error);
@@ -223,7 +210,6 @@ router.post('/createGroup', async (req, res) => {
         });
         groupMembers.push(groupCreator);
         await GroupMember.bulkCreate(groupMembers);
-        
         res.status(201).json({ message: 'Group created successfully' });
     } catch (error) {
         console.error('Error creating group:', error);
@@ -342,7 +328,6 @@ router.get('/getMessageLength', async (req, res) => {
                status: 'uncheck',    
            }
        });
-
        const messageCounts = messages.reduce((acc, message) => {
            const sender = message.sender_id;  
            const receiver = message.receiver_id;  
@@ -354,7 +339,6 @@ router.get('/getMessageLength', async (req, res) => {
 
            return acc;
        }, {});
-
        const resultArray = Object.entries(messageCounts).map(([key, value]) => {
            const [sender, receiver] = key.split(" to ");  
            return { [sender]: value };  
@@ -369,11 +353,10 @@ router.get('/getMessageLength', async (req, res) => {
  
  router.get('/getClearMessage', async (req, res) => {
     try {
-        const { userId } = req.query;
-        // Fetch all unchecked messages for the sender
+        const { clearId } = req.query;
         const messages = await Message.findAll({
             where: {
-                sender_id: userId,
+                sender_id: clearId,
                 status: 'uncheck',  
             }
         });
@@ -384,7 +367,7 @@ router.get('/getMessageLength', async (req, res) => {
             { status: 'check' },
             {
                 where: {
-                    sender_id: userId,
+                    sender_id: clearId,
                     status: 'uncheck',
                 }
             }

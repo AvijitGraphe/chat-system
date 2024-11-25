@@ -52,6 +52,7 @@ export default function Message() {
     }
   }, [messages])
 
+  //show the file url
   const fileUrl = "http://localhost:5000/routes/uploads";
 
   // Fetch user list from the API
@@ -84,36 +85,22 @@ export default function Message() {
     setCheckId(user.user_id);
     setGetUserIdActive(user.user_id);
     handleCheckId(user.user_id);
-
     clearStoreMessage(user.user_id);
-
-
   };
 
 
-  //clear the store message
-
-
-
-
-
-  const clearStoreMessage = async (userId) => {
+  //clear the store message of prev are not views
+  const clearStoreMessage = async (clearId) => {
     try {
         const response = await axios.get(`${config.apiUrl}/api/getClearMessage`, {
-            params: { userId },
+            params: { clearId },
         });
-        console.log(response.data);
-        setStoreMessage(response.data);
+        handleShowLength(userId);
     } catch (error) {
         console.error("Error clearing messages:", error);
     }
-};
-
-
-
-
-
-
+  };
+  
 
 
 
@@ -130,6 +117,8 @@ export default function Message() {
     }
   };
 
+
+  //socket connection with the server
   useEffect(() => {
     const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
     const socketUrl = `${protocol}${window.location.hostname}${
@@ -161,21 +150,12 @@ export default function Message() {
       const senderMessage = (newMessage) => {
           setMessages((prevMessages) => [...prevMessages, newMessage]);
       };
-
-
-      //message reciver with used id and not the current user
+      //message reciver with used id and not the current user.
         const handleReceiveMessage = (newMessage) => {
-
           //sotre the message
           if (parseInt(newMessage.sender_id, 10) !== parseInt(checkId, 10)) {
-
-            // setStoreMessage((prevMessages) => [...prevMessages, newMessage]);
-            // handleShowLength(userId);
-
             handleShowLength(userId);
-
           }
-        
         //length of the store message
         if (
           newMessage &&
@@ -184,10 +164,8 @@ export default function Message() {
         //show of the message in the chat
         {
           if (newMessage.receiver_id === parseInt(userId, 10)) {
-
             setMessages((prevMessages) => [...prevMessages, newMessage]);
             responseMessage(newMessage);
-
           } else {
             console.log("Message doesn't belong to the current user.");
           }
@@ -236,7 +214,6 @@ export default function Message() {
     const responseMessage= (newMessage) => {
       if(socket){
         socket.emit('respone', newMessage);
-        console.log(newMessage);
       }else{
         console.log("no data response")
       }
@@ -244,6 +221,7 @@ export default function Message() {
 
 
 
+  //Show all effect data
   useEffect(() => {
     fetchUserList();
     handleShowGroups(userId);
@@ -251,16 +229,15 @@ export default function Message() {
   }, [userId]);
 
 
-  const handleShowLength = async (userId) => {      
+  //Show the length of the message
+  const handleShowLength = async (userId) => {  
     const response = await axios.get(`${config.apiUrl}/api/getMessageLength`, {
       params: { userId },
-    });    
+    });        
     setStoreMessage(response.data); 
   };
-  
-
-
-
+ 
+  //Show all groups list
   const handleGroupCreate = async () => {
     setShowCreateGroup(true);
   };
@@ -272,7 +249,7 @@ export default function Message() {
     setGroupName("");
   };
 
-  {/*create group lists */}
+  {/*Create new group lists */}
   const handleCreateGroup = async () => {
     if (!groupName || selectedUsers.length === 0) {
       alert("Please enter a group name and select at least one user.");
@@ -335,7 +312,7 @@ export default function Message() {
     }
   };
 
-  //message send emmit
+  //Message send emmit one to one
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!receiverId || !inputValue) {
@@ -372,22 +349,24 @@ export default function Message() {
     }
   };
 
+  //Join group
   const handleJoinGroup = (groupId) => {
     if (socket) {
       socket.emit("joinGroup", groupId);
     }
   };
 
+  //Leave group
   const handleLeaveGroup = (groupId) => {
     if (socket) {
       socket.emit("leaveGroup", groupId);
     }
   };
   
+  //For checking the user id
   const handleCheckId = (checkId) => {
     if (socket) {
       socket.emit("joinCheckId", checkId);
-      console.log("joinCheckId", checkId);
     }
   };
 
@@ -432,6 +411,7 @@ export default function Message() {
     setFile((prevFiles) => prevFiles.filter((_, i) => i !== index));
   };
 
+  // Send group message
   const handleSendGroupMessage = async (e) => {
     e.preventDefault();
     if (!getGroupId || !inputValue) {
@@ -467,8 +447,11 @@ export default function Message() {
     }
   };
 
-  let typingTimeout; 
 
+
+
+  // Handle typing indicator
+  let typingTimeout; 
   const handleInputChange = (e) => {
     setInputValue(e.target.value);
     // If there is text input
@@ -525,19 +508,18 @@ export default function Message() {
           md={4}
           className="d-flex flex-column bg-white rounded shadow-sm p-3"
         >
-          <div className="d-flex align-items-center justify-content-between">
-            <h3 className="mb-3 p-2 text-primary text-capitalize-custom" style={{textTransform: "capitalize"}}>{userName}</h3>
-            <Button
-              type="button"
-              label="Create Group"
-              icon="pi pi-users"
-              outlined
-              className="p-button-secondary"
-              onClick={handleGroupCreate}
-            />
-          </div>
-
-
+            {/* create group button */}
+            <div className="d-flex align-items-center justify-content-between">
+              <h3 className="mb-3 p-2 text-primary text-capitalize-custom" style={{textTransform: "capitalize"}}>{userName}</h3>
+              <Button
+                type="button"
+                label="Create Group"
+                icon="pi pi-users"
+                outlined
+                className="p-button-secondary"
+                onClick={handleGroupCreate}
+              />
+            </div>
            {/* Display Users and Groups in One ListGroup */}
             <div>
                 <ListGroup
@@ -545,73 +527,54 @@ export default function Message() {
                   className="overflow-auto"
                   style={{ height: "600px", backgroundColor: "#f9f9f9", textTransform: "capitalize" }}
                 >
-                  {[
-                    ...userlist.map((user) => ({ type: 'user', ...user })),
-                    ...groups.map((group) => ({ type: 'group', ...group }))
-                  ].length > 0 ? (
-                    [
+                    {[
                       ...userlist.map((user) => ({ type: 'user', ...user })),
                       ...groups.map((group) => ({ type: 'group', ...group }))
-                    ].map((item) => (
-                      <ListGroup.Item
-                        key={item.type === 'user' ? item.user_id : item.group_id}
-                        className={`cursor-pointer ${
-                          (item.type === 'user' && item.user_id === selectedUsers) ||
-                          (item.type === 'group' && item.group_id === selectedGroup)
-                            ? 'bg-primary text-white'
-                            : ''
-                        }`}
-                        onClick={() => item.type === 'user' ? handleUserClick(item) : handleGroupClick(item)}
-                        style={{
-                          backgroundColor: "#ffffff",
-                          borderBottom: "1px solid #ddd",
-                          position: "relative",
-                        }}
-                      >
+                    ].length > 0 ? (
+                      [
+                        ...userlist.map((user) => ({ type: 'user', ...user })),
+                        ...groups.map((group) => ({ type: 'group', ...group }))
+                      ].map((item) => (
+                        <ListGroup.Item
+                          key={item.type === 'user' ? item.user_id : item.group_id}
+                          className={`cursor-pointer ${
+                            (item.type === 'user' && item.user_id === selectedUsers) ||
+                            (item.type === 'group' && item.group_id === selectedGroup)
+                              ? 'bg-primary text-white'
+                              : ''
+                          }`}
+                          onClick={() => item.type === 'user' ? handleUserClick(item) : handleGroupClick(item)}
+                          style={{
+                            backgroundColor: "#ffffff",
+                            borderBottom: "1px solid #ddd",
+                            position: "relative",
+                          }}
+                          type="button"
+                        >
 
-                        {/* Display green dot if the user is the sender of any message */}
-                        
-                         {/* {item.type === 'user' && storeMessage.some(message => parseInt(message.sender_id, 10) === item.user_id && parseInt(message.sender_id, 10) !== checkId) &&  (
-                          <span className="dot-indicator position-absolute top-0 start-0 m-2" style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "green" }}>
+                        {/* Display prev message  data*/}
+                        {
+                          item.type === 'user' && Array.isArray(storeMessage) && storeMessage.some(message => {
+                            const messageKey = Object.keys(message)[0];
+                            return parseInt(messageKey, 10) === item.user_id && parseInt(messageKey, 10) !== checkId;
+                          }) && (
+                            <span className="dot-indicator position-absolute top-0 start-0 m-2" style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "green" }}></span>
+                          )
+                        }
 
-                          </span>
-                        )}  
-
-
-
-
-                        {item.type === 'user' && storeMessage.some(message => parseInt(message.sender_id, 10) === item.user_id && parseInt(message.sender_id, 10) !== checkId) && (
-                          <span className="sender-id-length position-absolute top-0 start-25 m-2" style={{ fontSize: "12px", color: "green" }}>
-                            {storeMessage.filter(message => parseInt(message.sender_id, 10) === item.user_id).length}
-                          </span>
-                        )} */}
-
-
-{
-  item.type === 'user' && Array.isArray(storeMessage) && storeMessage.some(message => {
-    const messageKey = Object.keys(message)[0];
-    return parseInt(messageKey, 10) === item.user_id && parseInt(messageKey, 10) !== checkId;
-  }) && (
-    <span className="dot-indicator position-absolute top-0 start-0 m-2" style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "green" }}></span>
-  )
-}
-
-{/* Display the length of sender_id */}
-{
-  item.type === 'user' && Array.isArray(storeMessage) && storeMessage.some(message => {
-    const messageKey = Object.keys(message)[0];
-    return parseInt(messageKey, 10) === item.user_id && parseInt(messageKey, 10) !== checkId;
-  }) && (
-    <span className="sender-id-length position-absolute top-0 start-25 m-2" style={{ fontSize: "12px", color: "green" }}>
-      {
-        storeMessage.find(message => Object.keys(message)[0] === String(item.user_id))?.[item.user_id] || 0
-      }
-    </span>
-  )
-}
-
-
-
+                        {/* Display the length of sender_id */}
+                        {
+                          item.type === 'user' && Array.isArray(storeMessage) && storeMessage.some(message => {
+                            const messageKey = Object.keys(message)[0];
+                            return parseInt(messageKey, 10) === item.user_id && parseInt(messageKey, 10) !== checkId;
+                          }) && (
+                            <span className="sender-id-length position-absolute top-0 start-25 m-2" style={{ fontSize: "12px", color: "green" }}>
+                              {
+                                storeMessage.find(message => Object.keys(message)[0] === String(item.user_id))?.[item.user_id] || 0
+                              }
+                            </span>
+                          )
+                        }
           
                         {/* Check if the user or group is active */}
                         {item.type === 'user' && activeUsers.some(
@@ -621,7 +584,7 @@ export default function Message() {
                             Active
                           </span>
                         )}
-
+                        {/* Display the user name or group name */}
                         {item.type === 'user' ? item.user_name : item.group_name}
                       </ListGroup.Item>
                     ))
@@ -630,10 +593,6 @@ export default function Message() {
                   )}
                 </ListGroup>
             </div>
-
-
-
-
         </Col>
         <Col
           md={8}
@@ -820,8 +779,6 @@ export default function Message() {
           {/* Message Input Section */}
 
 
-
-
           {isShow && (
             <Form
               onSubmit={
@@ -951,6 +908,8 @@ export default function Message() {
 
         </Col>
       </Row>
+      
+      
       {/* Create Group Dialog */}
       <Dialog
         header="Create New Group"
@@ -1012,7 +971,10 @@ export default function Message() {
           </Form>
         </Card>
 
+      
       </Dialog>
+    
+    
     </Container>
   );
 }
