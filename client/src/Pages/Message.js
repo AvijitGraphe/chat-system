@@ -185,8 +185,6 @@ export default function Message() {
         socket.on('userStopTyping', (incomingCheckId, typingUsers) => {
             setTypingUsers([]);
         });
-
-
         socket.on('stopTyping', (incomingCheckId, typingUsers) => {   
           setTypingUsers([]);            
         });
