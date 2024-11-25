@@ -43,9 +43,8 @@ function websocketRoute(server) {
 
             // Initialize active conversations for the user
             activeConversations[userId] = activeConversations[userId] || {};
-            socket.on('sendMessage', async (msg) => {
 
-                console.log("message received on server with:", msg);
+            socket.on('sendMessage', async (msg) => {
                 
                 try {
                     const newMessage = await Message.create({

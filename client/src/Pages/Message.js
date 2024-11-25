@@ -93,6 +93,7 @@ export default function Message() {
     const updatedMessages = storeMessage.filter(
       (message) => parseInt(message.sender_id, 10) !== clearId
     );
+    
     setStoreMessage(updatedMessages);
   };
 
@@ -133,29 +134,47 @@ export default function Message() {
   }, [accessToken]);
 
   useEffect(() => {
+
+
     if (socket) {   
       //message sender
       const senderMessage = (newMessage) => {
           setMessages((prevMessages) => [...prevMessages, newMessage]);
       };
-      //message reciver
-      const handleReceiveMessage = (newMessage) => {
-        
-        
-        setStoreMessage((prevMessages) => [...prevMessages, newMessage]);
 
 
+      //message reciver with used id and not the current user
+        const handleReceiveMessage = (newMessage) => {
+          if (parseInt(newMessage.sender_id, 10) !== parseInt(checkId, 10)) {
+            setStoreMessage((prevMessages) => [...prevMessages, newMessage]);
+        }
+        
+        //length of the store message
         if (
           newMessage &&
           parseInt(newMessage.sender_id, 10) === parseInt(checkId, 10)
-        ) {
+        ) 
+        //show of the message in the chat
+        {
           if (newMessage.receiver_id === parseInt(userId, 10)) {
+
             setMessages((prevMessages) => [...prevMessages, newMessage]);
+            responseMessage(newMessage);
+
           } else {
             console.log("Message doesn't belong to the current user.");
           }
         }
       };
+
+
+
+      //response message
+      const responseMessage= (newMessage) => {
+        console.log("responseMessage +++responseMessage", newMessage);
+        
+      };
+
       // Typing event handler
       const handleTyping = (groupId, users) => {
         if (groupId === parseInt(activeGroup, 10)) {
@@ -189,39 +208,6 @@ export default function Message() {
       };
     }
   }, [socket, userId, checkId, activeGroup]);
-
-
-  useEffect(() => {
-    if (socket) {
-        socket.on('userTyping', (incomingCheckId, typingUsers) => {
-          if(incomingCheckId === parseInt(checkId, 10)) {
-            setTypingUsers(typingUsers.map((user) => user.userName));
-          }else{
-            return null;
-          }
-        });
-        socket.on('userStopTyping', (incomingCheckId, typingUsers) => {
-            setTypingUsers([]);
-        });
-        socket.on('stopTyping', (incomingCheckId, typingUsers) => {   
-          setTypingUsers([]);            
-        });
-        return () => {
-            socket.off('userTyping');
-            socket.off('stopTyping');
-        };
-    }
-}, [socket]);
-
-
-
-
-
-
-
-
-
-
 
 
   useEffect(() => {
@@ -475,16 +461,13 @@ export default function Message() {
   
   
 
+  //reply to a message
   const handleReplyClick = (message) => {
     setReplyingTo(message); 
     setInputValue("");
   };
 
   
-
-
-
-
 
 
   return (
@@ -541,30 +524,19 @@ export default function Message() {
 
                         {/* Display green dot if the user is the sender of any message */}
                         
-                        
- 
                          {item.type === 'user' && storeMessage.some(message => parseInt(message.sender_id, 10) === item.user_id && parseInt(message.sender_id, 10) !== checkId) &&  (
                           <span className="dot-indicator position-absolute top-0 start-0 m-2" style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "green" }}>
 
                           </span>
                         )}  
 
-                       
-                       
-                       
                         {/* Display the length of sender_id */}
                         {item.type === 'user' && storeMessage.some(message => parseInt(message.sender_id, 10) === item.user_id && parseInt(message.sender_id, 10) !== checkId) && (
                           <span className="sender-id-length position-absolute top-0 start-25 m-2" style={{ fontSize: "12px", color: "green" }}>
                             {storeMessage.filter(message => parseInt(message.sender_id, 10) === item.user_id).length}
                           </span>
                         )}
-
-
-
-                        
-                        
-                        
-                        
+          
                         {/* Check if the user or group is active */}
                         {item.type === 'user' && activeUsers.some(
                           (activeUser) => String(activeUser.userId) === String(item.user_id)
