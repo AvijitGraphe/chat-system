@@ -44,6 +44,9 @@ function websocketRoute(server) {
             // Initialize active conversations for the user
             activeConversations[userId] = activeConversations[userId] || {};
             socket.on('sendMessage', async (msg) => {
+
+                console.log("message received on server with:", msg);
+                
                 try {
                     const newMessage = await Message.create({
                         sender_id: msg.senderId,
@@ -76,6 +79,9 @@ function websocketRoute(server) {
                     socket.emit('error', { message: 'Message send failed' });
                 }
             });
+
+            // Listen for 'joinCheckId' to check if checkId matches the userCheckId
+
             
             // Function to broadcast one-to-one message
             function broadcastOneToOneMessage(message, filePaths) {
@@ -276,7 +282,9 @@ function websocketRoute(server) {
                 return { userId, userName: clients[userId].userName };  
             });
             io.emit('activeUserList', activeUsers);
+            logId = activeUsers;
         }
+
         } catch (err) {
             console.error('Error verifying token: ', err);
             socket.disconnect();

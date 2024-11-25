@@ -40,6 +40,7 @@ export default function Message() {
   const [hoverMessage, setHoverMessage] = useState(null);
   const [replyingTo, setReplyingTo] = useState(null);
   const [getUserIdActive, setGetUserIdActive] = useState(null);
+  const [storeMessage, setStoreMessage] = useState([]);
 
 
   //chat contaienr ref..
@@ -82,6 +83,17 @@ export default function Message() {
     setCheckId(user.user_id);
     setGetUserIdActive(user.user_id);
     handleCheckId(user.user_id);
+
+    clearStoreMessage(user.user_id);
+  };
+
+
+  //clear the store message
+  const clearStoreMessage = (clearId) => {
+    const updatedMessages = storeMessage.filter(
+      (message) => parseInt(message.sender_id, 10) !== clearId
+    );
+    setStoreMessage(updatedMessages);
   };
 
   // Fetch chat messages from the server
@@ -102,7 +114,7 @@ export default function Message() {
     const socketUrl = `${protocol}${window.location.hostname}${
       window.location.port ? `:${window.location.port}` : ""
     }`;
-    const newSocket = io(socketUrl, {
+    const newSocket = io(`${config.apiUrl}`, {
       query: { token: accessToken },
       transports: ["websocket"],
       reconnection: true,
@@ -128,6 +140,11 @@ export default function Message() {
       };
       //message reciver
       const handleReceiveMessage = (newMessage) => {
+        
+        
+        setStoreMessage((prevMessages) => [...prevMessages, newMessage]);
+
+
         if (
           newMessage &&
           parseInt(newMessage.sender_id, 10) === parseInt(checkId, 10)
@@ -154,6 +171,7 @@ export default function Message() {
       const handleActiveUserList = (activeUsers) => {
         setActiveUsers(activeUsers);
       };
+
       socket.on("senderMessage", senderMessage);
       socket.on("typing", handleTyping);
       socket.on("stopTyping", handleStopTyping);
@@ -194,6 +212,12 @@ export default function Message() {
         };
     }
 }, [socket]);
+
+
+
+
+
+
 
 
 
@@ -330,8 +354,11 @@ export default function Message() {
   const handleCheckId = (checkId) => {
     if (socket) {
       socket.emit("joinCheckId", checkId);
+      console.log("joinCheckId", checkId);
     }
   };
+
+
   // Handle receiving a group message
   useEffect(() => {
     if (socket) {
@@ -453,6 +480,12 @@ export default function Message() {
     setInputValue("");
   };
 
+  
+
+
+
+
+
 
   return (
     <Container className="py-4 bg-light">
@@ -474,53 +507,83 @@ export default function Message() {
             />
           </div>
 
-          <div>
-            {/* Display Users and Groups in One ListGroup */}
-            <ListGroup
-              variant="flush"
-              className="overflow-auto"
-              style={{ height: "600px", backgroundColor: "#f9f9f9", textTransform: "capitalize" }}
-            >
-              {[
-                ...userlist.map((user) => ({ type: 'user', ...user })),
-                ...groups.map((group) => ({ type: 'group', ...group }))
-              ].length > 0 ? (
-                [
-                  ...userlist.map((user) => ({ type: 'user', ...user })),
-                  ...groups.map((group) => ({ type: 'group', ...group }))
-                ].map((item) => (
-                  <ListGroup.Item
-                    key={item.type === 'user' ? item.user_id : item.group_id}
-                    className={`cursor-pointer ${
-                      (item.type === 'user' && item.user_id === selectedUsers) ||
-                      (item.type === 'group' && item.group_id === selectedGroup)
-                        ? 'bg-primary text-white'
-                        : ''
-                    }`}
-                    onClick={() => item.type === 'user' ? handleUserClick(item) : handleGroupClick(item)}
-                    style={{
-                      backgroundColor: "#ffffff",
-                      borderBottom: "1px solid #ddd",
-                      position: "relative",
-                    }}
-                  >
-                    {/* Check if the user or group is active */}
-                    {item.type === 'user' && activeUsers.some(
-                      (activeUser) => String(activeUser.userId) === String(item.user_id)
-                    ) && (
-                      <span className="badge bg-success position-absolute top-0 end-0 m-2">
-                        Active
-                      </span>
-                    )}
 
-                    {item.type === 'user' ? item.user_name : item.group_name}
-                  </ListGroup.Item>
-                ))
-              ) : (
-                <ListGroup.Item>No users or groups found</ListGroup.Item>
-              )}
-            </ListGroup>
-          </div>
+           {/* Display Users and Groups in One ListGroup */}
+            <div>
+                <ListGroup
+                  variant="flush"
+                  className="overflow-auto"
+                  style={{ height: "600px", backgroundColor: "#f9f9f9", textTransform: "capitalize" }}
+                >
+                  {[
+                    ...userlist.map((user) => ({ type: 'user', ...user })),
+                    ...groups.map((group) => ({ type: 'group', ...group }))
+                  ].length > 0 ? (
+                    [
+                      ...userlist.map((user) => ({ type: 'user', ...user })),
+                      ...groups.map((group) => ({ type: 'group', ...group }))
+                    ].map((item) => (
+                      <ListGroup.Item
+                        key={item.type === 'user' ? item.user_id : item.group_id}
+                        className={`cursor-pointer ${
+                          (item.type === 'user' && item.user_id === selectedUsers) ||
+                          (item.type === 'group' && item.group_id === selectedGroup)
+                            ? 'bg-primary text-white'
+                            : ''
+                        }`}
+                        onClick={() => item.type === 'user' ? handleUserClick(item) : handleGroupClick(item)}
+                        style={{
+                          backgroundColor: "#ffffff",
+                          borderBottom: "1px solid #ddd",
+                          position: "relative",
+                        }}
+                      >
+
+                        {/* Display green dot if the user is the sender of any message */}
+                        
+                        
+ 
+                         {item.type === 'user' && storeMessage.some(message => parseInt(message.sender_id, 10) === item.user_id && parseInt(message.sender_id, 10) !== checkId) &&  (
+                          <span className="dot-indicator position-absolute top-0 start-0 m-2" style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "green" }}>
+
+                          </span>
+                        )}  
+
+                       
+                       
+                       
+                        {/* Display the length of sender_id */}
+                        {item.type === 'user' && storeMessage.some(message => parseInt(message.sender_id, 10) === item.user_id && parseInt(message.sender_id, 10) !== checkId) && (
+                          <span className="sender-id-length position-absolute top-0 start-25 m-2" style={{ fontSize: "12px", color: "green" }}>
+                            {storeMessage.filter(message => parseInt(message.sender_id, 10) === item.user_id).length}
+                          </span>
+                        )}
+
+
+
+                        
+                        
+                        
+                        
+                        {/* Check if the user or group is active */}
+                        {item.type === 'user' && activeUsers.some(
+                          (activeUser) => String(activeUser.userId) === String(item.user_id)
+                        ) && (
+                          <span className="badge bg-success position-absolute top-0 end-0 m-2">
+                            Active
+                          </span>
+                        )}
+
+                        {item.type === 'user' ? item.user_name : item.group_name}
+                      </ListGroup.Item>
+                    ))
+                  ) : (
+                    <ListGroup.Item>No users or groups found</ListGroup.Item>
+                  )}
+                </ListGroup>
+            </div>
+
+
 
 
         </Col>
