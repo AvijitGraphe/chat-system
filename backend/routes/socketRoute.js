@@ -112,13 +112,11 @@ function websocketRoute(server) {
                         { where: { message_id: msg.message_id } }  
                     );
                     if (updatedRows > 0) {
-                        console.log(`Message with ID ${msg.message_id} marked as 'check'`);
                         socket.emit('responseback', {
                             message_id: msg.message_id,
                             status: 'check',  
                             message: 'Message successfully updated'
                         });
-                        console.log(`Message with ID ${msg.message_id} marked as 'check' ++++++`);
                     } else {
                         return null;
                     }
@@ -181,7 +179,7 @@ function websocketRoute(server) {
 
 
 
-            // Function to broadcast the message to group members, but notify users not in the group
+            // Function to broadcast the message to group members;
             function broadcastGroupMessage(message, files) {
 
                 const messageData = {

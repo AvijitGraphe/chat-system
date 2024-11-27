@@ -241,6 +241,7 @@ router.get('/getGroups', async (req, res) => {
 });
 
 
+//get api through which the group members can be fetched
 router.get('/getGroupMembers', async (req, res) => {
     const { groupId } = req.query;
     try {
@@ -317,6 +318,7 @@ router.get('/getGroupMessages', async (req, res) => {
 });
 
 
+//get api through which the message length can be fetched
 router.get('/getMessageLength', async (req, res) => {
     try {
        const { userId } = req.query;
@@ -348,7 +350,7 @@ router.get('/getMessageLength', async (req, res) => {
     }
  });
  
- 
+ //get api through which the clear message can be fetched
  router.get('/getClearMessage', async (req, res) => {
     try {
         const { clearId } = req.query;
@@ -381,6 +383,7 @@ router.get('/getMessageLength', async (req, res) => {
 });
 
 
+//get api through which the group message length can be fetched
 router.get('/getGroupMessageLength', async (req, res) => {
     try {
         const { userId } = req.query;
@@ -444,7 +447,7 @@ router.get('/getGroupMessageLength', async (req, res) => {
 });
 
 
-
+//get api through which the user name can be fetched
 router.post('/getGroupMessageRead', async (req, res) => {
     try {
         const { userId, groupId } = req.body; 
@@ -494,6 +497,7 @@ router.post('/getGroupMessageRead', async (req, res) => {
     }
 });
 
+//get api through which the last messages can be fetched
 router.get('/getLastMessagesByUser', async (req, res) => {
     try {
         const { userId, user_ids } = req.query;
@@ -527,7 +531,7 @@ router.get('/getLastMessagesByUser', async (req, res) => {
     }
 });
 
-//get api through which the user name can be fetched
+//get api through 
 router.get('/getUserName', async (req, res) => {
     try {
         const { userId } = req.query;
