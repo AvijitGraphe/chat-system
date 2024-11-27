@@ -32,7 +32,6 @@ export default function Message() {
   const [checkId, setCheckId] = useState(null);
   const [isShow, setIsShow] = useState(false);
   const [file, setFile] = useState([]);
-
   const [typing, setTyping] = useState(false);
   const [typingUsers, setTypingUsers] = useState([]);
   const [activeUsers, setActiveUsers] = useState([]);
@@ -44,6 +43,7 @@ export default function Message() {
   const [groupMessageStore, setGroupMessageStore] = useState([]);
   
   const [prevGroupId, setPrevGroupId] = useState(null);
+  const [notifications, setNotifications] = useState([]);
 
   //chat contaienr ref..
   const chatcontainerRef = useRef(null)
@@ -115,7 +115,6 @@ export default function Message() {
       const response = await axios.get(`${config.apiUrl}/api/getMessages`, {
         params: { userId, otherUserId: receiverId },
       });
-      console.log(response.data);
       setMessages(response.data);
       setReplyingTo([]);
     } catch (error) {
@@ -172,9 +171,7 @@ export default function Message() {
           if (newMessage.receiver_id === parseInt(userId, 10)) {
 
             if(newMessage.receiver_id){
-
               setMessages((prevMessages) => [...prevMessages, newMessage]);
-            
             }
             responseMessage(newMessage);
           } else {
@@ -385,35 +382,15 @@ export default function Message() {
   };
 
 
-  // Handle receiving a group message
-  // useEffect(() => {
-  //   if (socket) {
-  //       const handleReceiveGroupMessage = (newMessage) => {
-  //         console.log(newMessage);
-  //       if (newMessage.group_id === currentGroupId) {
-  //         if(newMessage.group_id){
-  //           setMessages((prevMessages) => [...prevMessages, newMessage]);
-  //         }
-  //       }
-  //     };
-  //       socket.on("receiveGroupMessage", handleReceiveGroupMessage);
-  //     return () => {
-  //       socket.off("receiveGroupMessage", handleReceiveGroupMessage);
-  //     };
-  //   }
-  // }, [socket, currentGroupId]);
-  
 
-  const [notifications, setNotifications] = useState([]);
+
 
   useEffect(() => {
     if (socket) {
-      // Handle incoming group messages
       const handleReceiveGroupMessage = (newMessage) => {
-        console.log("Received message:", newMessage);
         if (newMessage.group_id === currentGroupId) {
           setMessages((prevMessages) => [...prevMessages, newMessage]);
-          handelGroupMessageRead(newMessage.group_id, userId); //clear rhe mesage..!
+          handelGroupMessageRead(newMessage.group_id, userId); 
         } else {
           console.log(`Message from a different group (group_id: ${newMessage.group_id}):`, newMessage);
         }
@@ -535,39 +512,6 @@ export default function Message() {
   let typingTimeout; 
   const handleInputChange = (e) => {
     setInputValue(e.target.value);
-    // If there is text input
-    // if (e.target.value.length > 0) {
-    //   if (getGroupId) {
-    //     socket.emit("typing", getGroupId, userId, userName);
-    //     setTyping(true);
-    //   } else if (checkId) {
-    //     socket.emit("userTyping", userId, userName, checkId);
-    //     setTyping(true);
-    //   } else {
-    //     return null;
-    //   }
-  
-    //   // Clear previous timeout, then set a new one
-    //   clearTimeout(typingTimeout);
-    //   typingTimeout = setTimeout(() => {
-    //     if (getGroupId) {
-    //       socket.emit("stopTyping", getGroupId, userId, userName);
-    //     } else if (checkId) {
-    //       socket.emit("userStopTyping", userId, userName, checkId);
-    //     }
-    //     setTyping(false);
-    //   }, 1000);
-  
-    // } else {
-    //   // If input is cleared, stop typing immediately
-    //   clearTimeout(typingTimeout);
-    //   if (getGroupId) {
-    //     socket.emit("stopTyping", getGroupId, userId, userName);
-    //   } else if (checkId) {
-    //     socket.emit("userStopTyping", userId, userName, checkId);
-    //   }
-    //   setTyping(false);
-    // }
   };
   
   
@@ -611,7 +555,16 @@ const formatDate = (messageDate) => {
 
 
 
-
+const timeTracker = (timestamp) => {
+  console.log(timestamp);
+  return timestamp.toLocaleString("en-US", { 
+    timeZone: "Asia/Kolkata", 
+    hour: "2-digit", 
+    minute: "2-digit", 
+    hour12: true
+  });
+};
+                
 
 
   
@@ -708,12 +661,6 @@ const formatDate = (messageDate) => {
                             ) : null}
                           </div>
                         )}
-
-
-
-
-
-
 
           
                         {/* Check if the user or group is active */}
@@ -864,6 +811,8 @@ const formatDate = (messageDate) => {
 
                         {/* Message Content */}
                         <p>{msg.content}</p>
+
+                        <p>{timeTracker(new Date(msg.timestamp))}</p>
 
                         {/* Display Files (if any) */}
                         {msg.files && msg.files.length > 0 && (

@@ -57,7 +57,6 @@ function websocketRoute(server) {
                         prevContent: msg.prevContent,
                         sender_name: msg.sender_name,
                         rebackName: msg.rebackName,
-                        timestamp: new Date(),
                         is_read: false,
                     });
                     let filePaths = [];
@@ -92,9 +91,12 @@ function websocketRoute(server) {
                     content: message.content,
                     sender_name: message.sender_name,
                     rebackName: message.rebackName,
-                    timestamp: message.timestamp,
+                    timestamp: message.created_at,
                     files: filePaths || [], 
                 };
+
+                console.log(messageData);
+
 
                 if (clients[message.sender_id]) {
                     clients[message.sender_id].emit('senderMessage', messageData);
@@ -133,7 +135,6 @@ function websocketRoute(server) {
                         prevContent: msg.prevContent,
                         sender_name: msg.sender_name,
                         rebackName: msg.rebackName,
-                        timestamp: new Date(),
                         is_read: false,
                     });
                     let filePaths = [];
@@ -163,130 +164,78 @@ function websocketRoute(server) {
             
 
 
+
             // Function to broadcast the message to group members, but notify users not in the group
-function broadcastGroupMessage(message, files) {
-    const messageData = {
-        message_id: message.message_id,
-        sender_id: message.sender_id,
-        group_id: message.group_id,
-        content: message.content,
-        prevContent: message.prevContent,
-        sender_name: message.sender_name,
-        rebackName: message.rebackName,
-        timestamp: message.timestamp,
-        files: files || [],
-    };
+            function broadcastGroupMessage(message, files) {
 
-    const groupUsers = groups[message.group_id] || [];
-    const activeUsers = Object.keys(clients);
+                const messageData = {
+                    message_id: message.message_id,
+                    sender_id: message.sender_id,
+                    group_id: message.group_id,
+                    content: message.content,
+                    prevContent: message.prevContent,
+                    sender_name: message.sender_name,
+                    rebackName: message.rebackName,
+                    timestamp: message.created_at,
 
-    // Broadcast message to group members
-    groupUsers.forEach(userId => {
-        if (clients[userId]) {
-            clients[userId].emit('receiveGroupMessage', messageData);
-        } else {
-            console.log(`No client found for user ${userId}`);
-        }
-    });
+                    files: files || [],
+                     
+                    created_at: message.created_at,
+                };
 
-    // Send notification to active users who are NOT part of the group
-    activeUsers.forEach(userId => {
-        if (!groupUsers.includes(userId) && clients[userId]) {
-            // Sending a notification to users not in the group
-            clients[userId].emit('receiveGroupNotification', {
-                message: `New message in Group ${message.group_id}`,
-                group_id: message.group_id,
-                sender_name: message.sender_name,
-            });
-        }
-    });
-}
+                console.log(messageData);
 
-// Join a group
-socket.on('joinGroup', (groupId) => {
-    console.log(groupId);
-    if (!groups[groupId]) {
-        groups[groupId] = [];
-    }
-    if (!groups[groupId].includes(userId)) {
-        groups[groupId].push(userId);
-        socket.join(groupId);
-        io.to(groupId).emit('userJoinedGroup', { userId, groupId });
-    }
-});
+                const groupUsers = groups[message.group_id] || [];
+                const activeUsers = Object.keys(clients);
 
-// Leave a group
-socket.on('leaveGroup', (groupId) => {
-    const groupMembers = groups[groupId];
-    if (groupMembers) {
-        const index = groupMembers.indexOf(userId);
-        if (index > -1) {
-            groupMembers.splice(index, 1);
-            socket.leave(groupId);
-            io.to(groupId).emit('userLeftGroup', { userId, groupId });
-        }
-    }
-});
+                // Broadcast message to group members
+                groupUsers.forEach(userId => {
+                    if (clients[userId]) {
+                        clients[userId].emit('receiveGroupMessage', messageData);
+                    } else {
+                        console.log(`No client found for user ${userId}`);
+                    }
+                });
 
-
-
-            // Function to broadcast the message to
-            // function broadcastGroupMessage(message, files) {
-            //     const messageData = {
-            //         message_id: message.message_id,
-            //         sender_id: message.sender_id,
-            //         group_id: message.group_id,
-            //         content: message.content,
-            //         prevContent: message.prevContent,
-            //         content: message.content,
-            //         sender_name: message.sender_name,
-            //         rebackName: message.rebackName,
-            //         timestamp: message.timestamp,
-            //         files: files || [], 
-            //     };
-
-            //     const groupUsers = groups[message.group_id] || [];
-                
-            //     groupUsers.forEach(userId => {
-            //         if (clients[userId]) {
-            //             clients[userId].emit('receiveGroupMessage', messageData);
-            //         } else {
-            //             console.log(`No client found for user ${userId}`);
-            //         }
-            //     });
-
-            // }
-
-
-
+                // Send notification to active users who are NOT part of the group
+                activeUsers.forEach(userId => {
+                    if (!groupUsers.includes(userId) && clients[userId]) {
+                        // Sending a notification to users not in the group
+                        clients[userId].emit('receiveGroupNotification', {
+                            message: `New message in Group ${message.group_id}`,
+                            group_id: message.group_id,
+                            sender_name: message.sender_name,
+                        });
+                    }
+                });
+            }
 
             // Join a group
-            // socket.on('joinGroup', (groupId) => {
-            //     console.log(groupId);
-            //     if (!groups[groupId]) {
-            //         groups[groupId] = [];
-            //     }
-            //     if (!groups[groupId].includes(userId)) {
-            //         groups[groupId].push(userId);
-            //         socket.join(groupId);
-            //         io.to(groupId).emit('userJoinedGroup', { userId, groupId });
-            //     }
-            // });
+            socket.on('joinGroup', (groupId) => {
+                console.log(groupId);
+                if (!groups[groupId]) {
+                    groups[groupId] = [];
+                }
+                if (!groups[groupId].includes(userId)) {
+                    groups[groupId].push(userId);
+                    socket.join(groupId);
+                    io.to(groupId).emit('userJoinedGroup', { userId, groupId });
+                }
+            });
 
             // Leave a group
-            // socket.on('leaveGroup', (groupId) => {
-            //     const groupMembers = groups[groupId];
-            //     if (groupMembers) {
-            //         const index = groupMembers.indexOf(userId);
-            //         if (index > -1) {
-            //             groupMembers.splice(index, 1); 
-            //             socket.leave(groupId); 
-            //             io.to(groupId).emit('userLeftGroup', { userId, groupId });
-            //         }
-            //     }
-            // });
+            socket.on('leaveGroup', (groupId) => {
+                const groupMembers = groups[groupId];
+                if (groupMembers) {
+                    const index = groupMembers.indexOf(userId);
+                    if (index > -1) {
+                        groupMembers.splice(index, 1);
+                        socket.leave(groupId);
+                        io.to(groupId).emit('userLeftGroup', { userId, groupId });
+                    }
+                }
+            });
 
-            // Leave a group
             // Leave a one-to-one conversation
             socket.on('leaveConversation', (otherUserId) => {
                 if (activeConversations[userId] && activeConversations[userId][otherUserId]) {
@@ -353,10 +302,7 @@ socket.on('leaveGroup', (groupId) => {
             
             socket.on('stopTyping', (userId, checkId) => {
                 if (typingUsers[checkId]) {
-                    // Remove the user from the typing list
                     typingUsers[checkId] = typingUsers[checkId].filter(user => user.userId !== userId);
-            
-                    // Emit the updated typing list to the checkId room
                     socket.to(checkId).emit('stopTyping', checkId, typingUsers[checkId]);
                 }
             });

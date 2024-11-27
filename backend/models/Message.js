@@ -76,10 +76,8 @@ const Message = sequelize.define("Message", {
     defaultValue: DataTypes.NOW
   }
 }, {
-  timestamps: true, 
+  timestamps: false, 
   tableName: "Message",
-  createdAt: 'created_at',
-  updatedAt: 'updated_at'
 });
 
 

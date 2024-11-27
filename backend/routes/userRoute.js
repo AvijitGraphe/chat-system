@@ -186,6 +186,9 @@ router.get('/getMessages', async (req, res) => {
                 };
             })
         );
+
+        console.log(messages);
+        
         res.json(messagesWithFiles);
     } catch (error) {
         console.error("Error fetching messages:", error);
@@ -312,6 +315,10 @@ router.get('/getGroupMessages', async (req, res) => {
                 };
             })
         );
+
+        console.log(messages);
+
+
         res.status(200).json(messagesWithFiles);
     } catch (error) {
         console.error("Error fetching messages:", error);
@@ -410,6 +417,8 @@ router.get('/getGroupMessageLength', async (req, res) => {
                 }
             }
         });
+
+
         if (!messages.length) {
             return res.status(202).json([]);
         }
