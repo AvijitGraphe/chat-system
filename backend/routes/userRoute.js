@@ -510,19 +510,11 @@ router.post('/getGroupMessageRead', async (req, res) => {
 router.get('/getLastMessagesByUser', async (req, res) => {
     try {
         const { userId, user_ids } = req.query;
-        console.log("User ids:", userId, user_ids);  // User ids: 1 [2,3,4]
-
-        // Convert user_ids string to an array if it is passed as a string
         const userIdsArray = Array.isArray(user_ids) ? user_ids : JSON.parse(user_ids);
-
-        // Validate the input
         if (!userId || !userIdsArray || userIdsArray.length === 0) {
             return res.status(400).json({ error: "Missing userId or user_ids" });
         }
-
         const lastMessages = [];
-
-        // Loop through each user in userIdsArray to fetch the last message between userId and that user
         for (const receiverId of userIdsArray) {
             const messages = await Message.findAll({
                 where: {
@@ -532,11 +524,11 @@ router.get('/getLastMessagesByUser', async (req, res) => {
                     ]
                 },
                 order: [['created_at', 'DESC']],
-                limit: 1  // Get only the last message
+                limit: 1  
             });
 
             if (messages.length > 0) {
-                lastMessages.push(messages[0]);  // Add the most recent message to the result
+                lastMessages.push(messages[0]);  
             }
         }
 
@@ -548,10 +540,7 @@ router.get('/getLastMessagesByUser', async (req, res) => {
     }
 });
 
-;
-
-
-
+//get api through which the user name can be fetched
 router.get('/getUserName', async (req, res) => {
     try {
         const { userId } = req.query;
@@ -567,6 +556,42 @@ router.get('/getUserName', async (req, res) => {
         res.status(200).json(user.username);
     } catch (error) {
         console.error('Error fetching user name:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+
+//get last group message
+router.get('/getLastGroupMessage', async (req, res) => {
+    try {
+        const { userId } = req.query;
+        if (!userId) {
+            return res.status(400).json({ error: 'userId is required' });
+        }
+        const groupMembers = await GroupMember.findAll({
+            where: { user_id: userId }
+        });
+        const groupIds = groupMembers.map(group => group.group_id);
+
+        if (groupIds.length === 0) {
+            return res.status(404).json({ error: 'User is not part of any group' });
+        }
+        const lastMessagesPromises = groupIds.map(async (groupId) => {
+            const messages = await Message.findAll({
+                where: { group_id: groupId },
+                order: [['created_at', 'DESC']],
+                limit: 1
+            });
+            return {
+                groupId,
+                content: messages.length > 0 ? messages[0].content : null
+            };
+        });
+        const lastMessages = await Promise.all(lastMessagesPromises);
+        res.json(lastMessages);
+        console.log("lastMessages", lastMessages);
+    } catch (error) {
+        console.error('Error fetching last group message:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

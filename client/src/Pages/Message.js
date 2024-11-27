@@ -50,6 +50,7 @@ export default function Message() {
   const [lastmessage, setLastmessage] = useState("");
   const [lastMessages, setLastMessages] = useState([]);
   const [storeUserList, setStoreUserList] = useState([]);
+  const [lastGroupMessage, setLastGroupMessage] = useState([]);
 
 
   //chat contaienr ref..
@@ -253,6 +254,7 @@ useEffect(() => {
   handleShowLength(userId);
   handelGroupMessageLnegth(userId);
   fetchLastMessage(userId);
+  handleLastGroupMessage(userId);
 }, [userId]);
 
 
@@ -403,13 +405,14 @@ const handleCheckId = (checkId) => {
 
 
 
-
+//group message handler
 useEffect(() => {
   if (socket) {
     const handleReceiveGroupMessage = (newMessage) => {
       if (newMessage.group_id === currentGroupId) {
         setMessages((prevMessages) => [...prevMessages, newMessage]);
         handelGroupMessageRead(newMessage.group_id, userId); 
+        handleLastGroupMessage(userId);
       } else {
         console.log(`Message from a different group (group_id: ${newMessage.group_id}):`, newMessage);
       }
@@ -418,6 +421,7 @@ useEffect(() => {
     const handleReceiveGroupNotification = (notification) => {
       if (notification.group_id !== currentGroupId) {
         handelGroupMessageLnegth(userId)
+        handleLastGroupMessage(userId);
       }
     };
     socket.on("receiveGroupMessage", handleReceiveGroupMessage);
@@ -581,6 +585,23 @@ const fetchLastMessage = async (data) => {
 };
 
 
+//fetch the group message
+const handleLastGroupMessage = async (userId) => {
+  try {
+    const response = await axios.get(`${config.apiUrl}/api/getLastGroupMessage`, {
+      params: { userId },
+    });
+    console.log("Last group message:", response.data);
+    setLastGroupMessage(response.data);
+  } catch (error) {
+    console.error("Error fetching last group message:", error);
+  }
+};
+
+
+
+
+
   return (
     <Container className="py-4 bg-light">
       <Row className="flex-grow-1">
@@ -650,27 +671,38 @@ const fetchLastMessage = async (data) => {
                                   <span className="fw-bold">
                                     {item.type === 'user' ? item.username : item.group_name}
                                   </span>
+
+
                                   {/* Last message text and status */}
                                       <div className="d-flex align-items-center mt-1">
-
-                                      <div className="d-flex align-items-center">
-                                        {
-                                          item.type === 'user' &&
-                                          Array.isArray(lastMessages) &&
-                                          lastMessages.length > 0 && (
-                                            lastMessages
-                                              .filter(message => message.sender_id === item.user_id || message.receiver_id === item.user_id) 
-                                              .map((message, index) => (
-                                                <p key={index}>{message.content}</p>
-                                              ))
-                                          )
-                                        }
-                                      </div>
-
-
-
-
-
+                                         {/* Last message one to one */}
+                                        <div className="d-flex align-items-center">
+                                          {
+                                            item.type === 'user' &&
+                                            Array.isArray(lastMessages) &&
+                                            lastMessages.length > 0 && (
+                                              lastMessages
+                                                .filter(message => message.sender_id === item.user_id || message.receiver_id === item.user_id) 
+                                                .map((message, index) => (
+                                                  <p key={index}>{message.content}</p>
+                                                ))
+                                            )
+                                          }
+                                        </div>
+                                        {/* Last message group */}
+                                          <div className="d-flex align-items-center">
+                                          {
+                                            item.type === 'group' &&
+                                            Array.isArray(lastGroupMessage) &&
+                                            lastGroupMessage.length > 0 && (
+                                              lastGroupMessage
+                                                .filter(message => message.groupId === item.group_id) 
+                                                .map((message, index) => (
+                                                  <p key={index}>{message.content}</p>
+                                                ))
+                                            )
+                                          }
+                                          </div>
                                         <p className="mb-0 text-end" style={{ marginLeft: '10px' }}>
                                           {/* Conditional rendering of message count */}                            
                                           {
@@ -701,7 +733,8 @@ const fetchLastMessage = async (data) => {
                                         </p> 
 
                                       </div>
-                                      
+                               
+                               
                                 </div>
                                 </div>
                                 <div>
@@ -805,9 +838,6 @@ const fetchLastMessage = async (data) => {
                       key={msg.message_id}
                       className={`d-flex mb-2 ${isSender ? "justify-content-end" : "justify-content-start"}`}
                     >
-
-                    
-                    
                       {showDate && (
                         <div
                           style={{
@@ -821,8 +851,6 @@ const fetchLastMessage = async (data) => {
                           </p>
                         </div>
                       )}
-
-
                       <div
                         className="message-bubble p-2"
                         style={{
