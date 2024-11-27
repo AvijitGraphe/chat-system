@@ -49,6 +49,7 @@ export default function Message() {
   const [userName, setUserName] = useState("");
   const [lastmessage, setLastmessage] = useState("");
   const [lastMessages, setLastMessages] = useState([]);
+  const [storeUserList, setStoreUserList] = useState([]);
 
 
   //chat contaienr ref..
@@ -73,7 +74,8 @@ const fetchUserList = async () => {
       }
     );
     setUserlist(response.data);
-    // handleShowLength(userId);
+    fetchLastMessage(response.data);
+    getUserName(userId);
   } catch (error) {
     console.error("Error fetching user list", error);
   }
@@ -94,7 +96,6 @@ const handleUserClick = (user) => {
   setGetUserIdActive(user.user_id);
   handleCheckId(user.user_id);
   clearStoreMessage(user.user_id);
-
   handleLeaveGroup(prevGroupId);
 
 };
@@ -165,8 +166,6 @@ useEffect(() => {
 }, [accessToken]);
 
 useEffect(() => {
-
-
   if (socket) {   
     //message sender
     const senderMessage = (newMessage) => {
@@ -174,6 +173,7 @@ useEffect(() => {
     };
     //message reciver with used id and not the current user.
       const handleReceiveMessage = (newMessage) => {
+        fetchLastMessage(userlist);
         //sotre the message
         if (parseInt(newMessage.sender_id, 10) !== parseInt(checkId, 10)) {
           handleShowLength(userId);
@@ -191,6 +191,7 @@ useEffect(() => {
             setMessages((prevMessages) => [...prevMessages, newMessage]);
           }
           responseMessage(newMessage);
+          console.log("Message doesn't belong to the current user.", userlist);
         } else {
           console.log("Message doesn't belong to the current user.");
         }
@@ -229,7 +230,7 @@ useEffect(() => {
       socket.off("activeUserList");
     };
   }
-}, [socket, userId, checkId, activeGroup]);
+}, [socket, userId, checkId, activeGroup, userlist]);
 
 
 
@@ -253,6 +254,7 @@ useEffect(() => {
   handelGroupMessageLnegth(userId);
   fetchLastMessage(userId);
 }, [userId]);
+
 
 
 //Show the length of the message
@@ -562,16 +564,22 @@ const timeTracker = (timestamp) => {
 };
 
 //fetch the last message
-const fetchLastMessage = async (userId) => {
+const fetchLastMessage = async (data) => {
   try {
+    const userIds = data.map(user => user.user_id); 
     const response = await axios.get(`${config.apiUrl}/api/getLastMessagesByUser`, {
-      params: { userId },
+      params: {
+        userId,
+        user_ids: JSON.stringify(userIds)
+      }
     });
+    console.log("Last messages for users:", response.data);
     setLastMessages(response.data);
   } catch (error) {
     console.error("Error fetching last message:", error);
   }
 };
+
 
   return (
     <Container className="py-4 bg-light">
@@ -644,6 +652,25 @@ const fetchLastMessage = async (userId) => {
                                   </span>
                                   {/* Last message text and status */}
                                       <div className="d-flex align-items-center mt-1">
+
+                                      <div className="d-flex align-items-center">
+                                        {
+                                          item.type === 'user' &&
+                                          Array.isArray(lastMessages) &&
+                                          lastMessages.length > 0 && (
+                                            lastMessages
+                                              .filter(message => message.sender_id === item.user_id || message.receiver_id === item.user_id) 
+                                              .map((message, index) => (
+                                                <p key={index}>{message.content}</p>
+                                              ))
+                                          )
+                                        }
+                                      </div>
+
+
+
+
+
                                         <p className="mb-0 text-end" style={{ marginLeft: '10px' }}>
                                           {/* Conditional rendering of message count */}                            
                                           {
@@ -672,7 +699,9 @@ const fetchLastMessage = async (userId) => {
                                             )
                                           }
                                         </p> 
+
                                       </div>
+                                      
                                 </div>
                                 </div>
                                 <div>

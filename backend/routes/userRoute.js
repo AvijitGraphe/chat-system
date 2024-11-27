@@ -509,61 +509,67 @@ router.post('/getGroupMessageRead', async (req, res) => {
 
 router.get('/getLastMessagesByUser', async (req, res) => {
     try {
-        const { userId } = req.query;
+        const { userId, user_ids } = req.query;
+        console.log("User ids:", userId, user_ids);  // User ids: 1 [2,3,4]
 
-        // Fetch the latest message for each unique sender-receiver pair
-        const messages = await Message.findAll({
-            where: {
-                [Sequelize.Op.or]: [
-                    { sender_id: userId },
-                    { receiver_id: userId }
-                ]
-            },
-            attributes: [
-                [Sequelize.fn('GREATEST', Sequelize.col('sender_id'), Sequelize.col('receiver_id')), 'userPair'], // Group by user pair
-                [Sequelize.fn('MAX', Sequelize.col('message_id')), 'lastMessageId'], // Get the latest message ID
-                [Sequelize.fn('MAX', Sequelize.col('created_at')), 'lastMessageDate'], // Get the timestamp of the latest message
-            ],
-            group: ['userPair'], // Grouping by the pair of users (sender and receiver)
-            order: [[Sequelize.fn('MAX', Sequelize.col('message_id')), 'DESC']], // Order by the latest message
-        });
+        // Convert user_ids string to an array if it is passed as a string
+        const userIdsArray = Array.isArray(user_ids) ? user_ids : JSON.parse(user_ids);
 
-        console.log(messages);
-        if (messages.length === 0) {
-            return res.status(202).json([]);
+        // Validate the input
+        if (!userId || !userIdsArray || userIdsArray.length === 0) {
+            return res.status(400).json({ error: "Missing userId or user_ids" });
         }
 
-        // Fetch the detailed messages based on the latest message ID
-        const detailedMessages = await Promise.all(
-            messages.map(async (msg) => {
-                const lastMessage = await Message.findOne({
-                    where: {
-                        message_id: msg.dataValues.lastMessageId,
-                    },
-                });
+        const lastMessages = [];
 
-                // Return detailed message information, including sender, receiver, and content
-                return {
-                    sender_id: lastMessage.sender_id,
-                    receiver_id: lastMessage.receiver_id,
-                    content: lastMessage.content,  // Assuming the message text is in 'content'
-                    created_at: lastMessage.created_at,
-                    group_id: lastMessage.group_id,
-                };
-            })
-        );
+        // Loop through each user in userIdsArray to fetch the last message between userId and that user
+        for (const receiverId of userIdsArray) {
+            const messages = await Message.findAll({
+                where: {
+                    [Op.or]: [
+                        { sender_id: userId, receiver_id: receiverId },
+                        { sender_id: receiverId, receiver_id: userId }
+                    ]
+                },
+                order: [['created_at', 'DESC']],
+                limit: 1  // Get only the last message
+            });
 
-        console.log(detailedMessages);
-        res.status(200).json(detailedMessages);
+            if (messages.length > 0) {
+                lastMessages.push(messages[0]);  // Add the most recent message to the result
+            }
+        }
+
+        res.json(lastMessages);
+
     } catch (error) {
         console.error("Error fetching messages:", error);
         res.status(500).json({ error: "Failed to fetch last messages" });
     }
 });
 
+;
 
 
 
+router.get('/getUserName', async (req, res) => {
+    try {
+        const { userId } = req.query;
+        if (!userId) {
+            return res.status(400).json({ error: 'userId is required' });
+        }
+        const user = await User.findOne({
+            where: { user_id: userId }
+        });
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        res.status(200).json(user.username);
+    } catch (error) {
+        console.error('Error fetching user name:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
 
 
 module.exports = router;
