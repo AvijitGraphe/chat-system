@@ -94,10 +94,6 @@ function websocketRoute(server) {
                     timestamp: message.created_at,
                     files: filePaths || [], 
                 };
-
-                console.log(messageData);
-
-
                 if (clients[message.sender_id]) {
                     clients[message.sender_id].emit('senderMessage', messageData);
                 }
@@ -182,13 +178,10 @@ function websocketRoute(server) {
                      
                     created_at: message.created_at,
                 };
-
-                console.log(messageData);
-
                 const groupUsers = groups[message.group_id] || [];
                 const activeUsers = Object.keys(clients);
 
-                // Broadcast message to group members
+                // Brodcast message to group members
                 groupUsers.forEach(userId => {
                     if (clients[userId]) {
                         clients[userId].emit('receiveGroupMessage', messageData);
@@ -212,7 +205,6 @@ function websocketRoute(server) {
 
             // Join a group
             socket.on('joinGroup', (groupId) => {
-                console.log(groupId);
                 if (!groups[groupId]) {
                     groups[groupId] = [];
                 }
@@ -317,7 +309,6 @@ function websocketRoute(server) {
             io.emit('activeUserList', activeUsers);
             logId = activeUsers;
         }
-
         } catch (err) {
             console.error('Error verifying token: ', err);
             socket.disconnect();

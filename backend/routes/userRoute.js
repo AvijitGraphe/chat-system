@@ -37,7 +37,7 @@ router.post("/login", async (req, res) => {
         }
         const userPayload = { id: user.user_id, email: user.email };
         const accessToken = generateAccessToken(userPayload);
-        const fullName = `${user.user_name}`;
+        const fullName = `${user.username}`;
         res.status(201).json({
             message: "Login successful",
             userId: user.user_id,
@@ -53,18 +53,18 @@ router.post("/login", async (req, res) => {
 // Signup Route
 router.post("/signup", async (req, res) => {
     try {
-        const { user_name, email, password } = req.body;
+        const { username, email, password } = req.body;
         const user = await User.findOne({ where: { email: email } });
         if (user) {
             return res.status(400).json({ error: "User already exists" });
         }
         const hashedPassword = await bcrypt.hash(password, 10);
         const newUser = await User.create({
-            user_name,
+            username,
             email,
             password: hashedPassword,
         });
-        const fullName = `${newUser.user_name}`;
+        const fullName = `${newUser.username}`;
         res.status(201).json({ message: "User registered successfully", name: fullName });
     } catch (error) {
         console.error(error);
@@ -148,12 +148,12 @@ router.get('/getMessages', async (req, res) => {
                 {
                     model: User,
                     as: 'sender',
-                    attributes: ['user_id', 'user_name']
+                    attributes: ['user_id', 'username']
                 },
                 {
                     model: User,
                     as: 'receiver',
-                    attributes: ['user_id', 'user_name']
+                    attributes: ['user_id', 'username']
                 }
             ],
             order: [['message_id', 'ASC']] 
@@ -172,8 +172,8 @@ router.get('/getMessages', async (req, res) => {
                     message_id: msg.message_id,
                     sender_id: msg.sender_id,
                     receiver_id: msg.receiver_id,
-                    sender_name: msg.sender.user_name,
-                    receiver_name: msg.receiver.user_name,
+                    sender_name: msg.sender.username,
+                    receiver_name: msg.receiver.username,
                     content: msg.content,
                     timestamp: msg.created_at,
                     prevContent: msg.prevContent,
@@ -186,9 +186,6 @@ router.get('/getMessages', async (req, res) => {
                 };
             })
         );
-
-        console.log(messages);
-        
         res.json(messagesWithFiles);
     } catch (error) {
         console.error("Error fetching messages:", error);
@@ -258,11 +255,11 @@ router.get('/getGroupMembers', async (req, res) => {
         const userIds = groupMembers.map(member => member.user_id);
         const users = await User.findAll({
             where: { user_id: userIds },
-            attributes: ['user_id', 'user_name'],
+            attributes: ['user_id', 'username'],
         });
         const groupMembersWithGroupId = users.map(user => ({
             user_id: user.user_id,
-            user_name: user.user_name,
+            username: user.username,
             group_id: groupId, 
         }));
         res.status(200).json(groupMembersWithGroupId);
@@ -284,7 +281,7 @@ router.get('/getGroupMessages', async (req, res) => {
                 {
                     model: User,
                     as: 'sender', 
-                    attributes: ['user_id', 'user_name'] 
+                    attributes: ['user_id', 'username'] 
                 }
             ],
             order: [['message_id', 'ASC']],
@@ -301,7 +298,7 @@ router.get('/getGroupMessages', async (req, res) => {
                 return {
                     message_id: msg.message_id,
                     sender_id: msg.sender_id,
-                    sender_name: msg.sender ? msg.sender.user_name : null, 
+                    sender_name: msg.sender ? msg.sender.username : null, 
                     group_id: msg.group_id,
                     content: msg.content,
                     prevContent: msg.prevContent,
@@ -315,10 +312,6 @@ router.get('/getGroupMessages', async (req, res) => {
                 };
             })
         );
-
-        console.log(messages);
-
-
         res.status(200).json(messagesWithFiles);
     } catch (error) {
         console.error("Error fetching messages:", error);
@@ -513,6 +506,61 @@ router.post('/getGroupMessageRead', async (req, res) => {
         res.status(500).json({ error: "Failed to mark messages as read" });
     }
 });
+
+router.get('/getLastMessagesByUser', async (req, res) => {
+    try {
+        const { userId } = req.query;
+
+        // Fetch the latest message for each unique sender-receiver pair
+        const messages = await Message.findAll({
+            where: {
+                [Sequelize.Op.or]: [
+                    { sender_id: userId },
+                    { receiver_id: userId }
+                ]
+            },
+            attributes: [
+                [Sequelize.fn('GREATEST', Sequelize.col('sender_id'), Sequelize.col('receiver_id')), 'userPair'], // Group by user pair
+                [Sequelize.fn('MAX', Sequelize.col('message_id')), 'lastMessageId'], // Get the latest message ID
+                [Sequelize.fn('MAX', Sequelize.col('created_at')), 'lastMessageDate'], // Get the timestamp of the latest message
+            ],
+            group: ['userPair'], // Grouping by the pair of users (sender and receiver)
+            order: [[Sequelize.fn('MAX', Sequelize.col('message_id')), 'DESC']], // Order by the latest message
+        });
+
+        console.log(messages);
+        if (messages.length === 0) {
+            return res.status(202).json([]);
+        }
+
+        // Fetch the detailed messages based on the latest message ID
+        const detailedMessages = await Promise.all(
+            messages.map(async (msg) => {
+                const lastMessage = await Message.findOne({
+                    where: {
+                        message_id: msg.dataValues.lastMessageId,
+                    },
+                });
+
+                // Return detailed message information, including sender, receiver, and content
+                return {
+                    sender_id: lastMessage.sender_id,
+                    receiver_id: lastMessage.receiver_id,
+                    content: lastMessage.content,  // Assuming the message text is in 'content'
+                    created_at: lastMessage.created_at,
+                    group_id: lastMessage.group_id,
+                };
+            })
+        );
+
+        console.log(detailedMessages);
+        res.status(200).json(detailedMessages);
+    } catch (error) {
+        console.error("Error fetching messages:", error);
+        res.status(500).json({ error: "Failed to fetch last messages" });
+    }
+});
+
 
 
 

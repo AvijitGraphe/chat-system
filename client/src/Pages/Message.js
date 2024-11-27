@@ -10,6 +10,9 @@ import { MultiSelect } from "primereact/multiselect";
 import { Card } from "primereact/card";
 import { FiPaperclip } from "react-icons/fi";
 import { FiX } from "react-icons/fi";
+import { Avatar } from 'primereact/avatar';
+import { Badge } from 'primereact/badge';
+        
 
 export default function Message() {
   const [inputValue, setInputValue] = useState("");
@@ -17,7 +20,7 @@ export default function Message() {
   const [messages, setMessages] = useState([]);
   const [receiverId, setReceiverId] = useState(null);
   const [receiverName, setReceiverName] = useState("");
-  const { userName, userId, accessToken } = useContext(AuthContext);
+  const {userId, accessToken } = useContext(AuthContext);
   const [socket, setSocket] = useState(null);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [groupName, setGroupName] = useState("");
@@ -41,9 +44,10 @@ export default function Message() {
   const [getUserIdActive, setGetUserIdActive] = useState(null);
   const [storeMessage, setStoreMessage] = useState([]);
   const [groupMessageStore, setGroupMessageStore] = useState([]);
-  
   const [prevGroupId, setPrevGroupId] = useState(null);
   const [notifications, setNotifications] = useState([]);
+  const [userName, setUserName] = useState("");
+  const [lastmessage, setLastmessage] = useState("");
 
   //chat contaienr ref..
   const chatcontainerRef = useRef(null)
@@ -80,7 +84,7 @@ export default function Message() {
     setSelectedGroup([]);
     // Set user-specific data
     setReceiverId(user.user_id);
-    setReceiverName(user.user_name);
+    setReceiverName(user.username);
     setInputValue("");
     fetchMessages(userId, user.user_id);
     setShow(true);
@@ -107,6 +111,17 @@ export default function Message() {
   };
   
 
+  //get username 
+  const getUserName = async (userId) => {
+    try {
+      const response = await axios.get(`${config.apiUrl}/api/getUserName`, {
+        params: { userId },
+      });
+      setUserName(response.data);
+    } catch (error) {
+      console.error("Error fetching user name:", error);
+    }
+  };
 
 
   // Fetch chat messages from the server
@@ -234,6 +249,7 @@ export default function Message() {
     handleShowGroups(userId);
     handleShowLength(userId);
     handelGroupMessageLnegth(userId);
+    fetchLastMessage(userId);
   }, [userId]);
 
 
@@ -371,7 +387,6 @@ export default function Message() {
     if (socket) {
       socket.emit("leaveGroup", groupId);
     }
-    console.log(groupId);
   };
   
   //For checking the user id
@@ -528,35 +543,27 @@ export default function Message() {
 const formatDate = (messageDate) => {
   const now = new Date();
   const messageDateObj = new Date(messageDate);
-
-  // Check if the message is valid
   if (isNaN(messageDateObj)) {
     console.error("Invalid date:", messageDate);
-    return " ";  // Default for invalid date
+    return " ";  
   }
-
   const isToday = now.toDateString() === messageDateObj.toDateString();
   const isYesterday = (now - messageDateObj) / (1000 * 60 * 60 * 24) === 1;
-
   if (isToday) {
     return "Today";
   } else if (isYesterday) {
     return "Yesterday";
   } else {
-    // Extract day, month, and year from the date object
-    const day = messageDateObj.getDate().toString().padStart(2, "0");  // Add leading zero if necessary
-    const month = (messageDateObj.getMonth() + 1).toString().padStart(2, "0");  // Months are zero-indexed
+    const day = messageDateObj.getDate().toString().padStart(2, "0");
+    const month = (messageDateObj.getMonth() + 1).toString().padStart(2, "0"); 
     const year = messageDateObj.getFullYear();
-
-    // Return formatted date as dd/mm/yyyy
     return `${day}/${month}/${year}`;
   }
 };
 
 
-
+//time tracker
 const timeTracker = (timestamp) => {
-  console.log(timestamp);
   return timestamp.toLocaleString("en-US", { 
     timeZone: "Asia/Kolkata", 
     hour: "2-digit", 
@@ -564,7 +571,27 @@ const timeTracker = (timestamp) => {
     hour12: true
   });
 };
-                
+
+
+const [lastMessages, setLastMessages] = useState([]);
+
+const fetchLastMessage = async (userId) => {
+  try {
+    const response = await axios.get(`${config.apiUrl}/api/getLastMessagesByUser`, {
+      params: { userId },
+    });
+    setLastMessages(response.data);
+  } catch (error) {
+    console.error("Error fetching last message:", error);
+  }
+};
+
+
+//last message
+const lastMessageShow = (message) => {
+  const messageKey = Object.keys(message)[0];
+  return parseInt(messageKey, 10) === userId && parseInt(messageKey, 10) !== checkId;
+};
 
 
   
@@ -604,6 +631,7 @@ const timeTracker = (timestamp) => {
                         ...userlist.map((user) => ({ type: 'user', ...user })),
                         ...groups.map((group) => ({ type: 'group', ...group }))
                       ].map((item) => (
+                        
                         <ListGroup.Item
                           key={item.type === 'user' ? item.user_id : item.group_id}
                           className={`cursor-pointer ${
@@ -620,59 +648,97 @@ const timeTracker = (timestamp) => {
                           }}
                           type="button"
                         >
-
-                        {/* Display prev message  data*/}
-                        {
-                          item.type === 'user' && Array.isArray(storeMessage) && storeMessage.some(message => {
-                            const messageKey = Object.keys(message)[0];
-                            return parseInt(messageKey, 10) === item.user_id && parseInt(messageKey, 10) !== checkId;
-                          }) && (
-                            <span className="dot-indicator position-absolute top-0 start-0 m-2" style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "green" }}></span>
-                          )
-                        }
-
-                        {/* Display the length of sender_id */}
-                        {
-                          item.type === 'user' && Array.isArray(storeMessage) && storeMessage.some(message => {
-                            const messageKey = Object.keys(message)[0];
-                            return parseInt(messageKey, 10) === item.user_id && parseInt(messageKey, 10) !== checkId;
-                          }) && (
-                            <span className="sender-id-length position-absolute top-0 start-25 m-2" style={{ fontSize: "12px", color: "green" }}>
-                              {
-                                storeMessage.find(message => Object.keys(message)[0] === String(item.user_id))?.[item.user_id] || 0
-                              }
-                            </span>
-                          )
-                        }
-
-                        {/* Display the length of sender_id */}
-
-
-                        {item.type === 'group' && (
-                          <div>
-                            {item.group_id !== currentGroupId && item.sender_id !== userId ? (
-                              <span 
-                                className="sender-id-length position-absolute top-0 start-25 m-2" 
-                                style={{ fontSize: "12px", color: "green" }}>
-                                {
-                                  groupMessageStore.find(group => group.group_id === item.group_id)?.unread || null
-                                }
-                              </span>
-                            ) : null}
-                          </div>
-                        )}
-
-          
-                        {/* Check if the user or group is active */}
-                        {item.type === 'user' && activeUsers.some(
-                          (activeUser) => String(activeUser.userId) === String(item.user_id)
-                        ) && (
-                          <span className="badge bg-success position-absolute top-0 end-0 m-2">
-                            Active
-                          </span>
-                        )}
+                     
+                                                       
                         {/* Display the user name or group name */}
-                        {item.type === 'user' ? item.user_name : item.group_name}
+                        {
+                          <div className="d-flex ">
+                            {/* Left Section - Avatar and Username */}
+                            <div className="d-flex align-items-center">
+                                <Avatar 
+                                  label="" 
+                                  size="large" 
+                                  style={{ backgroundColor: '#8BA5B9FF', color: '#ffffff' }} 
+                                  shape="circle" 
+                                />
+                                <div className="d-flex flex-column ms-2">
+                                  {/* Display Username or Group Name */}
+                                  <span className="fw-bold">
+                                    {item.type === 'user' ? item.username : item.group_name}
+                                  </span>
+                                  {/* Last message text and status */}
+                                      <div className="d-flex align-items-center mt-1">
+                                        {/* <div>
+                                          {
+                                            Array.isArray(lastMessages) && lastMessages.length > 0 ? (
+                                              lastMessages.map((message) => {
+                                                if ((item.type === 'user' && message.receiver_id || message.sender_id === item.user_id) || 
+                                                    (item.type === 'group' && message.group_id === item.group_id)) {
+                                                  return (
+                                                    <div key={message.message_id} className="d-flex align-items-center">
+                                                      <span className="">
+                                                        {message.content}
+                                                      </span>
+                                                      <span className="text-muted ms-2">
+                                                        {timeTracker(new Date(message.created_at))}
+                                                      </span>
+                                                    </div>
+                                                  );
+                                                }
+                                                return null; 
+                                              })
+                                            ) : (
+                                              <p>No messages available</p>
+                                            )
+                                          }
+                                      </div> */}
+                      
+                                    
+                                    
+                                    <p className="mb-0 text-end" style={{ marginLeft: '10px' }}>
+                                      {/* Conditional rendering of message count */}                            
+                                      {
+                                        item.type === 'user' && Array.isArray(storeMessage) && storeMessage.some(message => {
+                                          const messageKey = Object.keys(message)[0];
+                                          return parseInt(messageKey, 10) === item.user_id && parseInt(messageKey, 10) !== checkId;
+                                        }) && (
+                                          <Badge value={
+                                            storeMessage.find(message => Object.keys(message)[0] === String(item.user_id))?.[item.user_id] || 0
+                                          } severity="success" style={{ fontSize: "12px" }} />
+                                        )
+                                      }
+                                      {
+                                        item.type === 'group' && (
+                                          <div>
+                                            {item.group_id !== currentGroupId && item.sender_id !== userId ? (
+                                              <Badge 
+                                                value={
+                                                  groupMessageStore.find(group => group.group_id === item.group_id)?.unread || null
+                                                } 
+                                                severity="success" 
+                                                style={{ fontSize: "12px"}} 
+                                              />
+                                            ) : null}
+                                          </div>
+                                        )
+                                      }
+                                    </p> 
+                                  </div>
+                                </div>
+                            </div>
+                            <div>
+                              {item.type === 'user' && activeUsers.some(
+                                (activeUser) => String(activeUser.userId) === String(item.user_id)
+                              ) && (
+                                <span className="badge bg-success position-absolute top-0 end-0 m-2">
+                                  Active
+                                </span>
+                              )}
+                            </div>
+                            <div> 
+                            </div>
+                          </div>
+                        }
                       </ListGroup.Item>
                     ))
                   ) : (
@@ -686,33 +752,47 @@ const timeTracker = (timestamp) => {
           className="d-flex flex-column bg-white rounded shadow-sm p-3"
         >
           {receiverName && !getGroupId && (
-            <div className="mb-2">
+            <div className="mb-2 d-flex align-items-center">
+              <Avatar 
+                    label="" 
+                    size="large" 
+                    style={{ backgroundColor: '#8BA5B9FF', color: '#ffffff' }} 
+                    shape="circle" 
+                  />
               <strong style={{textTransform:"capitalize"}}>{receiverName}</strong>
             </div>
           )}
           
           {showGroupName && getGroupId && (
-            <div className="mb-2">
-              <strong className="capitalize" style={{textTransform:"capitalize"}}>{showGroupName}</strong>
-              <ul
-                className="d-flex flex-row flex-wrap gap-2"
-                style={{ listStyleType: "none", paddingLeft: 0 }}
-              >
+            <div className="mb-2 d-flex align-items-center">
+              <Avatar 
+                  label="" 
+                  size="large" 
+                  style={{ backgroundColor: '#AAB6C0FF', color: '#ffffff' }} 
+                  shape="circle" 
+                />
+              <div>
+                <strong className="capitalize" style={{textTransform:"capitalize"}}>{showGroupName}</strong>
+                <ul
+                  className="d-flex flex-row flex-wrap gap-2"
+                  style={{ listStyleType: "none", paddingLeft: 0 }}
+                >
 
-                {selectedGroup.length > 0 ? (
-                  selectedGroup.map((user) => (
-                    <li key={user.user_id}>
-                      {user.user_id === parseInt(userId, 10) ? (
-                        <span>You,</span>
-                      ) : (
-                        <span>{user.user_name},</span>
-                      )}
-                    </li>
-                  ))
-                ) : (
-                  <p>No members found.</p>
-                )}
-              </ul>
+                  {selectedGroup.length > 0 ? (
+                    selectedGroup.map((user) => (
+                      <li key={user.user_id}>
+                        {user.user_id === parseInt(userId, 10) ? (
+                          <span>You,</span>
+                        ) : (
+                          <span>{user.username},</span>
+                        )}
+                      </li>
+                    ))
+                  ) : (
+                    <p>No members found.</p>
+                  )}
+                </ul>
+              </div>
             </div>
           )}
 
@@ -729,6 +809,7 @@ const timeTracker = (timestamp) => {
               </ul>
             </div>
           )}
+          
 
           {/* Message Display Section */}
           <div
@@ -1059,7 +1140,7 @@ const timeTracker = (timestamp) => {
                 value={selectedUsers}
                 options={userlist}
                 onChange={(e) => setSelectedUsers(e.value)}
-                optionLabel="user_name"
+                optionLabel="username"
                 display="chip"
                 placeholder="Select users"
                 style={{
