@@ -48,495 +48,485 @@ export default function Message() {
   const [notifications, setNotifications] = useState([]);
   const [userName, setUserName] = useState("");
   const [lastmessage, setLastmessage] = useState("");
+  const [lastMessages, setLastMessages] = useState([]);
+
 
   //chat contaienr ref..
   const chatcontainerRef = useRef(null)
 
-  useEffect(() =>{
-    if(chatcontainerRef.current){
-      chatcontainerRef.current.scrollTop = chatcontainerRef.current.scrollHeight;
-    }
-  }, [messages])
+useEffect(() =>{
+  if(chatcontainerRef.current){
+    chatcontainerRef.current.scrollTop = chatcontainerRef.current.scrollHeight;
+  }
+}, [messages])
 
   //show the file url
   const fileUrl = "http://localhost:5000/routes/uploads";
 
-  // Fetch user list from the API
-  const fetchUserList = async () => {
-    try {
-      const response = await axios.get(
-        `${config.apiUrl}/api/getUser?userId=${userId}`,
-        {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        }
-      );
-      setUserlist(response.data);
-      // handleShowLength(userId);
-    } catch (error) {
-      console.error("Error fetching user list", error);
-    }
-  };
-
-  const handleUserClick = (user) => {
-    setIsShow(true);
-    setGetGroupId(null);
-    setShowGroupName("");
-    setSelectedGroup([]);
-    // Set user-specific data
-    setReceiverId(user.user_id);
-    setReceiverName(user.username);
-    setInputValue("");
-    fetchMessages(userId, user.user_id);
-    setShow(true);
-    setCheckId(user.user_id);
-    setGetUserIdActive(user.user_id);
-    handleCheckId(user.user_id);
-    clearStoreMessage(user.user_id);
-
-    handleLeaveGroup(prevGroupId);
-
-  };
-
-
-  //clear the store message of prev are not views
-  const clearStoreMessage = async (clearId) => {
-    try {
-        const response = await axios.get(`${config.apiUrl}/api/getClearMessage`, {
-            params: { clearId },
-        });
-        handleShowLength(userId);
-    } catch (error) {
-        console.error("Error clearing messages:", error);
-    }
-  };
-  
-
-  //get username 
-  const getUserName = async (userId) => {
-    try {
-      const response = await axios.get(`${config.apiUrl}/api/getUserName`, {
-        params: { userId },
-      });
-      setUserName(response.data);
-    } catch (error) {
-      console.error("Error fetching user name:", error);
-    }
-  };
-
-
-  // Fetch chat messages from the server
-  const fetchMessages = async (userId, receiverId) => {
-    try {
-      const response = await axios.get(`${config.apiUrl}/api/getMessages`, {
-        params: { userId, otherUserId: receiverId },
-      });
-      setMessages(response.data);
-      setReplyingTo([]);
-    } catch (error) {
-      console.error("Error fetching messages", error);
-    }
-  };
-
-
-  //socket connection with the server
-  useEffect(() => {
-    const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
-    const socketUrl = `${protocol}${window.location.hostname}${
-      window.location.port ? `:${window.location.port}` : ""
-    }`;
-    const newSocket = io(`${config.apiUrl}`, {
-      query: { token: accessToken },
-      transports: ["websocket"],
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      auth: { token: accessToken },
-    });
-    // Set the socket instance
-    setSocket(newSocket);
-    newSocket.on("connect", () => {});
-    newSocket.on("connected", (data) => {});
-    return () => {
-      newSocket.disconnect();
-    };
-  }, [accessToken]);
-
-  useEffect(() => {
-
-
-    if (socket) {   
-      //message sender
-      const senderMessage = (newMessage) => {
-          setMessages((prevMessages) => [...prevMessages, newMessage]);
-      };
-      //message reciver with used id and not the current user.
-        const handleReceiveMessage = (newMessage) => {
-          //sotre the message
-          if (parseInt(newMessage.sender_id, 10) !== parseInt(checkId, 10)) {
-            handleShowLength(userId);
-          }
-        //length of the store message
-        if (
-          newMessage &&
-          parseInt(newMessage.sender_id, 10) === parseInt(checkId, 10)
-        ) 
-        //show of the message in the chat
-        {
-          if (newMessage.receiver_id === parseInt(userId, 10)) {
-
-            if(newMessage.receiver_id){
-              setMessages((prevMessages) => [...prevMessages, newMessage]);
-            }
-            responseMessage(newMessage);
-          } else {
-            console.log("Message doesn't belong to the current user.");
-          }
-        }
-      };
-
-      // Typing event handler
-      const handleTyping = (groupId, users) => {
-        if (groupId === parseInt(activeGroup, 10)) {
-          setTypingUsers(users.map((user) => user.userName));
-        } else {
-          setTypingUsers([]);
-        }
-      };
-      // Stop typing event handler
-      const handleStopTyping = (groupId, users) => {
-        setTypingUsers([]);
-      };
-      const handleActiveUserList = (activeUsers) => {
-        setActiveUsers(activeUsers);
-      };
-
-      socket.on("senderMessage", senderMessage);
-      socket.on("typing", handleTyping);
-      socket.on("stopTyping", handleStopTyping);
-      socket.on("receiveMessage", handleReceiveMessage);
-      socket.on("activeUserList", handleActiveUserList);
-
-      return () => {
-        socket.off("senderMessage", senderMessage);
-        socket.off("receiveMessage", handleReceiveMessage);
-        socket.off("typing");
-        socket.off("stopTyping");
-        socket.off("userStopTyping");
-        socket.off("activeUserId");
-        socket.off("activeUserList");
-      };
-    }
-  }, [socket, userId, checkId, activeGroup]);
-
-
-
-
-    //response message
-    const responseMessage= (newMessage) => {
-      if(socket){
-        socket.emit('respone', newMessage);
-      }else{
-        console.log("no data response")
+// Fetch user list from the API
+const fetchUserList = async () => {
+  try {
+    const response = await axios.get(
+      `${config.apiUrl}/api/getUser?userId=${userId}`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
       }
-    };
-
-
-
-  //Show all effect data
-  useEffect(() => {
-    fetchUserList();
-    handleShowGroups(userId);
-    handleShowLength(userId);
-    handelGroupMessageLnegth(userId);
-    fetchLastMessage(userId);
-  }, [userId]);
-
-
-  //Show the length of the message
-  const handleShowLength = async (userId) => {  
-    const response = await axios.get(`${config.apiUrl}/api/getMessageLength`, {
-      params: { userId },
-    });        
-    setStoreMessage(response.data); 
-  };
- 
-  //Show all groups list
-  const handleGroupCreate = async () => {
-    setShowCreateGroup(true);
-  };
-
-  {/* close create group dialog */}
-  const handleCloseDialog = () => {
-    setShowCreateGroup(false);
-    setSelectedUsers([]);
-    setGroupName("");
-  };
-
-  {/*Create new group lists */}
-  const handleCreateGroup = async () => {
-    if (!groupName || selectedUsers.length === 0) {
-      alert("Please enter a group name and select at least one user.");
-      return;
-    }
-    const payload = {
-      groupName: groupName,
-      selectedUsers: selectedUsers,
-      userId: userId,
-    };
-    await axios.post(
-      `${config.apiUrl}/api/createGroup`,
-      payload
     );
-    setSelectedUsers([]);
-    setGroupName("");
-    setShowCreateGroup(false);
-    handleShowGroups(userId);
-  };
+    setUserlist(response.data);
+    // handleShowLength(userId);
+  } catch (error) {
+    console.error("Error fetching user list", error);
+  }
+};
 
-  //show all groups list
-  const handleShowGroups = async (userId) => {
-    try {
-      const response = await axios.get(`${config.apiUrl}/api/getGroups`, {
-        params: { userId: userId },
+const handleUserClick = (user) => {
+  setIsShow(true);
+  setGetGroupId(null);
+  setShowGroupName("");
+  setSelectedGroup([]);
+  // Set user-specific data
+  setReceiverId(user.user_id);
+  setReceiverName(user.username);
+  setInputValue("");
+  fetchMessages(userId, user.user_id);
+  setShow(true);
+  setCheckId(user.user_id);
+  setGetUserIdActive(user.user_id);
+  handleCheckId(user.user_id);
+  clearStoreMessage(user.user_id);
+
+  handleLeaveGroup(prevGroupId);
+
+};
+
+
+//clear the store message of prev are not views
+const clearStoreMessage = async (clearId) => {
+  try {
+      const response = await axios.get(`${config.apiUrl}/api/getClearMessage`, {
+          params: { clearId },
       });
-      setGroups(response.data);
-    } catch (error) {
-      console.error("Error fetching groups", error);
-    }
-  };
-
-  // Handle group data send 
-  const handleGroupClick = async (group) => {
-    try {
-      setIsShow(true);
-      setGetGroupId(group.group_id);
-      setCurrentGroupId(group.group_id);
-      setShowGroupName(group.group_name);
-      setShow(false);
-      setAnotherCondition(true);
-      setMessages([]);
-      setReceiverName([]);
-      handleGetGroupMessages(group.group_id);
-      setActiveGroup(group.group_id);
-      setReplyingTo([]);
-      setCheckId(null);
-      setInputValue("");
-      const response = await axios.get(`${config.apiUrl}/api/getGroupMembers`, {
-        params: { groupId: group.group_id },
-      });
-      if (response.status === 200) {
-        setSelectedGroup(response.data);
-        handleJoinGroup(group.group_id);
-        handelGroupMessageRead(userId, group.group_id);
-      } else {
-        console.error("Failed to fetch group members", response);
-      }
-    } catch (error) {
-      console.error("Error fetching group members", error);
-    }
-  };
-
-  //Message send emmit one to one
-  const handleSendMessage = async (e) => {
-    e.preventDefault();
-    if (!receiverId || !inputValue) {
-      alert("Please select a user and type a message.");
-      return;
-    }
-    const payload = {
-      senderId: userId,
-      receiverId,
-      content: inputValue,
-      sender_name: userName,
-      prevMessageId: replyingTo ? replyingTo.message_id : null,
-      prevContent: replyingTo ? replyingTo.content : "",
-      rebackName: replyingTo ? replyingTo.sender_name : "",
-      files:
-        Array.isArray(file) && file.length > 0
-          ? file.map((f) => ({
-              name: f.name,
-              size: f.size,
-              type: f.type,
-              data: f,
-            }))
-          : [],
-    };
-    try {
-      if (socket) {
-        socket.emit("sendMessage", payload);
-      }
-      setInputValue("");
-      setFile([]);
-      setReplyingTo("")
-    } catch (error) {
-      console.error("Error sending message", error);
-    }
-  };
-
-  //Join group
-  const handleJoinGroup = (groupId) => {
-    if (socket) {
-      socket.emit("joinGroup", groupId);
-    }
-    setPrevGroupId(groupId);
-  };
-
-  //Leave group
-  const handleLeaveGroup = (groupId) => {
-    if (socket) {
-      socket.emit("leaveGroup", groupId);
-    }
-  };
-  
-  //For checking the user id
-  const handleCheckId = (checkId) => {
-    if (socket) {
-      socket.emit("joinCheckId", checkId);
-    }
-  };
+      handleShowLength(userId);
+  } catch (error) {
+      console.error("Error clearing messages:", error);
+  }
+};
 
 
-
-
-
-  useEffect(() => {
-    if (socket) {
-      const handleReceiveGroupMessage = (newMessage) => {
-        if (newMessage.group_id === currentGroupId) {
-          setMessages((prevMessages) => [...prevMessages, newMessage]);
-          handelGroupMessageRead(newMessage.group_id, userId); 
-        } else {
-          console.log(`Message from a different group (group_id: ${newMessage.group_id}):`, newMessage);
-        }
-      };
-  
-      // Handle notifications for groups user;
-      const handleReceiveGroupNotification = (notification) => {
-        if (notification.group_id !== currentGroupId) {
-          handelGroupMessageLnegth(userId)
-        }
-      };
-      socket.on("receiveGroupMessage", handleReceiveGroupMessage);
-      socket.on("receiveGroupNotification", handleReceiveGroupNotification);
-      return () => {
-        socket.off("receiveGroupMessage", handleReceiveGroupMessage);
-        socket.off("receiveGroupNotification", handleReceiveGroupNotification);
-      };
-    }
-  }, [socket, currentGroupId]);
-  
-  
-
-  
-  
-
-
-
-
-  //get unread message length
-  const handelGroupMessageLnegth = async (userId) => {
-    const response = await axios.get(`${config.apiUrl}/api/getGroupMessageLength`, {
+//get username 
+const getUserName = async (userId) => {
+  try {
+    const response = await axios.get(`${config.apiUrl}/api/getUserName`, {
       params: { userId },
     });
-    setGroupMessageStore(response.data);
+    setUserName(response.data);
+  } catch (error) {
+    console.error("Error fetching user name:", error);
   }
+};
 
+
+// Fetch chat messages from the server
+const fetchMessages = async (userId, receiverId) => {
+  try {
+    const response = await axios.get(`${config.apiUrl}/api/getMessages`, {
+      params: { userId, otherUserId: receiverId },
+    });
+    setMessages(response.data);
+    setReplyingTo([]);
+  } catch (error) {
+    console.error("Error fetching messages", error);
+  }
+};
+
+
+//socket connection with the server
+useEffect(() => {
+  const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
+  const socketUrl = `${protocol}${window.location.hostname}${
+    window.location.port ? `:${window.location.port}` : ""
+  }`;
+  const newSocket = io(`${config.apiUrl}`, {
+    query: { token: accessToken },
+    transports: ["websocket"],
+    reconnection: true,
+    reconnectionAttempts: 5,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    auth: { token: accessToken },
+  });
+  // Set the socket instance
+  setSocket(newSocket);
+  newSocket.on("connect", () => {});
+  newSocket.on("connected", (data) => {});
+  return () => {
+    newSocket.disconnect();
+  };
+}, [accessToken]);
+
+useEffect(() => {
+
+
+  if (socket) {   
+    //message sender
+    const senderMessage = (newMessage) => {
+        setMessages((prevMessages) => [...prevMessages, newMessage]);
+    };
+    //message reciver with used id and not the current user.
+      const handleReceiveMessage = (newMessage) => {
+        //sotre the message
+        if (parseInt(newMessage.sender_id, 10) !== parseInt(checkId, 10)) {
+          handleShowLength(userId);
+        }
+      //length of the store message
+      if (
+        newMessage &&
+        parseInt(newMessage.sender_id, 10) === parseInt(checkId, 10)
+      ) 
+      //show of the message in the chat
+      {
+        if (newMessage.receiver_id === parseInt(userId, 10)) {
+
+          if(newMessage.receiver_id){
+            setMessages((prevMessages) => [...prevMessages, newMessage]);
+          }
+          responseMessage(newMessage);
+        } else {
+          console.log("Message doesn't belong to the current user.");
+        }
+      }
+    };
+
+    // Typing event handler
+    const handleTyping = (groupId, users) => {
+      if (groupId === parseInt(activeGroup, 10)) {
+        setTypingUsers(users.map((user) => user.userName));
+      } else {
+        setTypingUsers([]);
+      }
+    };
+    // Stop typing event handler
+    const handleStopTyping = (groupId, users) => {
+      setTypingUsers([]);
+    };
+    const handleActiveUserList = (activeUsers) => {
+      setActiveUsers(activeUsers);
+    };
+
+    socket.on("senderMessage", senderMessage);
+    socket.on("typing", handleTyping);
+    socket.on("stopTyping", handleStopTyping);
+    socket.on("receiveMessage", handleReceiveMessage);
+    socket.on("activeUserList", handleActiveUserList);
+
+    return () => {
+      socket.off("senderMessage", senderMessage);
+      socket.off("receiveMessage", handleReceiveMessage);
+      socket.off("typing");
+      socket.off("stopTyping");
+      socket.off("userStopTyping");
+      socket.off("activeUserId");
+      socket.off("activeUserList");
+    };
+  }
+}, [socket, userId, checkId, activeGroup]);
+
+
+
+
+//response message
+const responseMessage= (newMessage) => {
+  if(socket){
+    socket.emit('respone', newMessage);
+  }else{
+    console.log("no data response")
+  }
+};
+
+
+
+//Show all effect data
+useEffect(() => {
+  fetchUserList();
+  handleShowGroups(userId);
+  handleShowLength(userId);
+  handelGroupMessageLnegth(userId);
+  fetchLastMessage(userId);
+}, [userId]);
+
+
+//Show the length of the message
+const handleShowLength = async (userId) => {  
+  const response = await axios.get(`${config.apiUrl}/api/getMessageLength`, {
+    params: { userId },
+  });        
+  setStoreMessage(response.data); 
+};
+
+//Show all groups list
+const handleGroupCreate = async () => {
+  setShowCreateGroup(true);
+};
+
+{/* close create group dialog */}
+const handleCloseDialog = () => {
+  setShowCreateGroup(false);
+  setSelectedUsers([]);
+  setGroupName("");
+};
+
+{/*Create new group lists */}
+const handleCreateGroup = async () => {
+  if (!groupName || selectedUsers.length === 0) {
+    alert("Please enter a group name and select at least one user.");
+    return;
+  }
+  const payload = {
+    groupName: groupName,
+    selectedUsers: selectedUsers,
+    userId: userId,
+  };
+  await axios.post(
+    `${config.apiUrl}/api/createGroup`,
+    payload
+  );
+  setSelectedUsers([]);
+  setGroupName("");
+  setShowCreateGroup(false);
+  handleShowGroups(userId);
+};
+
+//show all groups list
+const handleShowGroups = async (userId) => {
+  try {
+    const response = await axios.get(`${config.apiUrl}/api/getGroups`, {
+      params: { userId: userId },
+    });
+    setGroups(response.data);
+  } catch (error) {
+    console.error("Error fetching groups", error);
+  }
+};
+
+// Handle group data send 
+const handleGroupClick = async (group) => {
+  try {
+    setIsShow(true);
+    setGetGroupId(group.group_id);
+    setCurrentGroupId(group.group_id);
+    setShowGroupName(group.group_name);
+    setShow(false);
+    setAnotherCondition(true);
+    setMessages([]);
+    setReceiverName([]);
+    handleGetGroupMessages(group.group_id);
+    setActiveGroup(group.group_id);
+    setReplyingTo([]);
+    setCheckId(null);
+    setInputValue("");
+    const response = await axios.get(`${config.apiUrl}/api/getGroupMembers`, {
+      params: { groupId: group.group_id },
+    });
+    if (response.status === 200) {
+      setSelectedGroup(response.data);
+      handleJoinGroup(group.group_id);
+      handelGroupMessageRead(userId, group.group_id);
+    } else {
+      console.error("Failed to fetch group members", response);
+    }
+  } catch (error) {
+    console.error("Error fetching group members", error);
+  }
+};
+
+//Message send emmit one to one
+const handleSendMessage = async (e) => {
+  e.preventDefault();
+  if (!receiverId || !inputValue) {
+    alert("Please select a user and type a message.");
+    return;
+  }
+  const payload = {
+    senderId: userId,
+    receiverId,
+    content: inputValue,
+    sender_name: userName,
+    prevMessageId: replyingTo ? replyingTo.message_id : null,
+    prevContent: replyingTo ? replyingTo.content : "",
+    rebackName: replyingTo ? replyingTo.sender_name : "",
+    files:
+      Array.isArray(file) && file.length > 0
+        ? file.map((f) => ({
+            name: f.name,
+            size: f.size,
+            type: f.type,
+            data: f,
+          }))
+        : [],
+  };
+  try {
+    if (socket) {
+      socket.emit("sendMessage", payload);
+    }
+    setInputValue("");
+    setFile([]);
+    setReplyingTo("")
+  } catch (error) {
+    console.error("Error sending message", error);
+  }
+};
+
+//Join group
+const handleJoinGroup = (groupId) => {
+  if (socket) {
+    socket.emit("joinGroup", groupId);
+  }
+  setPrevGroupId(groupId);
+};
+
+//Leave group
+const handleLeaveGroup = (groupId) => {
+  if (socket) {
+    socket.emit("leaveGroup", groupId);
+  }
+};
+
+//For checking the user id
+const handleCheckId = (checkId) => {
+  if (socket) {
+    socket.emit("joinCheckId", checkId);
+  }
+};
+
+
+
+
+
+useEffect(() => {
+  if (socket) {
+    const handleReceiveGroupMessage = (newMessage) => {
+      if (newMessage.group_id === currentGroupId) {
+        setMessages((prevMessages) => [...prevMessages, newMessage]);
+        handelGroupMessageRead(newMessage.group_id, userId); 
+      } else {
+        console.log(`Message from a different group (group_id: ${newMessage.group_id}):`, newMessage);
+      }
+    };
+    // Handle notifications for groups user;
+    const handleReceiveGroupNotification = (notification) => {
+      if (notification.group_id !== currentGroupId) {
+        handelGroupMessageLnegth(userId)
+      }
+    };
+    socket.on("receiveGroupMessage", handleReceiveGroupMessage);
+    socket.on("receiveGroupNotification", handleReceiveGroupNotification);
+    return () => {
+      socket.off("receiveGroupMessage", handleReceiveGroupMessage);
+      socket.off("receiveGroupNotification", handleReceiveGroupNotification);
+    };
+  }
+}, [socket, currentGroupId]);
 
   
-  //get unread message and read message
-  const handelGroupMessageRead = async (userId, groupId) => {
-    try {
-          await axios.post(`${config.apiUrl}/api/getGroupMessageRead`, {
-            userId,
-            groupId
-        });
-        handelGroupMessageLnegth(userId)
-    } catch (error) {
-        console.error('Error marking messages as read:', error);
-    }
+
+
+//get unread message length
+const handelGroupMessageLnegth = async (userId) => {
+const response = await axios.get(`${config.apiUrl}/api/getGroupMessageLength`, {
+  params: { userId },
+});
+setGroupMessageStore(response.data);
 }
 
 
-
-  //get group messge get all the messages in the group
-  const handleGetGroupMessages = async (groupId) => {
-    try {
-      const response = await axios.get(
-        `${config.apiUrl}/api/getGroupMessages`,
-        {
-          params: { groupId },
-        }
-      );
-      setMessages(response.data);
-    } catch (error) {
-      console.error("Error fetching group messages", error);
-    }
-  };
-
-  // Handle file selection
-  const handleFileChange = (e) => {
-    setFile([...e.target.files]);
-  };
-
-  // remove the file
-  const removeFile = (index) => {
-    setFile((prevFiles) => prevFiles.filter((_, i) => i !== index));
-  };
-
-  // Send group message
-  const handleSendGroupMessage = async (e) => {
-    e.preventDefault();
-    if (!getGroupId || !inputValue) {
-      alert("Please select a group and type a message.");
-      return;
-    }
-    const messagePayload = {
-      senderId: userId,
-      groupId: getGroupId,
-      content: inputValue,
-      prevMessageId: replyingTo ? replyingTo.message_id : null,
-      prevContent: replyingTo ? replyingTo.content : "",
-      sender_name: userName,
-      rebackName: replyingTo ? replyingTo.sender_name : "",
-
-      files:
-        Array.isArray(file) && file.length > 0
-          ? file.map((f) => ({
-              name: f.name,
-              size: f.size,
-              type: f.type,
-              data: f,
-            }))
-          : [],
-    };
-    try {
-      socket.emit("sendGroupMessage", messagePayload);
-      setInputValue("");
-      setFile([]);
-      setReplyingTo("");
-    } catch (error) {
-      console.error("Error sending group message:", error);
-    }
-  };
-
-
-
-
-  // Handle typing indicator
-  let typingTimeout; 
-  const handleInputChange = (e) => {
-    setInputValue(e.target.value);
-  };
   
-  
+//get unread message and read message
+const handelGroupMessageRead = async (userId, groupId) => {
+  try {
+        await axios.post(`${config.apiUrl}/api/getGroupMessageRead`, {
+          userId,
+          groupId
+      });
+      handelGroupMessageLnegth(userId)
+  } catch (error) {
+      console.error('Error marking messages as read:', error);
+  }
+}
 
-  //reply to a message
-  const handleReplyClick = (message) => {
-    setReplyingTo(message); 
+//get group messge get all the messages in the group
+const handleGetGroupMessages = async (groupId) => {
+  try {
+    const response = await axios.get(
+      `${config.apiUrl}/api/getGroupMessages`,
+      {
+        params: { groupId },
+      }
+    );
+    setMessages(response.data);
+  } catch (error) {
+    console.error("Error fetching group messages", error);
+  }
+};
+
+// Handle file selection
+const handleFileChange = (e) => {
+  setFile([...e.target.files]);
+};
+
+// remove the file
+const removeFile = (index) => {
+  setFile((prevFiles) => prevFiles.filter((_, i) => i !== index));
+};
+
+// Send group message
+const handleSendGroupMessage = async (e) => {
+  e.preventDefault();
+  if (!getGroupId || !inputValue) {
+    alert("Please select a group and type a message.");
+    return;
+  }
+  const messagePayload = {
+    senderId: userId,
+    groupId: getGroupId,
+    content: inputValue,
+    prevMessageId: replyingTo ? replyingTo.message_id : null,
+    prevContent: replyingTo ? replyingTo.content : "",
+    sender_name: userName,
+    rebackName: replyingTo ? replyingTo.sender_name : "",
+
+    files:
+      Array.isArray(file) && file.length > 0
+        ? file.map((f) => ({
+            name: f.name,
+            size: f.size,
+            type: f.type,
+            data: f,
+          }))
+        : [],
+  };
+  try {
+    socket.emit("sendGroupMessage", messagePayload);
     setInputValue("");
-  };
+    setFile([]);
+    setReplyingTo("");
+  } catch (error) {
+    console.error("Error sending group message:", error);
+  }
+};
 
+
+// Handle typing indicator
+let typingTimeout; 
+const handleInputChange = (e) => {
+  setInputValue(e.target.value);
+};
+
+  
+//reply to a message
+const handleReplyClick = (message) => {
+  setReplyingTo(message); 
+  setInputValue("");
+};
 
 
 // Helper function to format the date
@@ -561,7 +551,6 @@ const formatDate = (messageDate) => {
   }
 };
 
-
 //time tracker
 const timeTracker = (timestamp) => {
   return timestamp.toLocaleString("en-US", { 
@@ -572,9 +561,7 @@ const timeTracker = (timestamp) => {
   });
 };
 
-
-const [lastMessages, setLastMessages] = useState([]);
-
+//fetch the last message
 const fetchLastMessage = async (userId) => {
   try {
     const response = await axios.get(`${config.apiUrl}/api/getLastMessagesByUser`, {
@@ -585,16 +572,6 @@ const fetchLastMessage = async (userId) => {
     console.error("Error fetching last message:", error);
   }
 };
-
-
-//last message
-const lastMessageShow = (message) => {
-  const messageKey = Object.keys(message)[0];
-  return parseInt(messageKey, 10) === userId && parseInt(messageKey, 10) !== checkId;
-};
-
-
-  
 
   return (
     <Container className="py-4 bg-light">
@@ -631,7 +608,6 @@ const lastMessageShow = (message) => {
                         ...userlist.map((user) => ({ type: 'user', ...user })),
                         ...groups.map((group) => ({ type: 'group', ...group }))
                       ].map((item) => (
-                        
                         <ListGroup.Item
                           key={item.type === 'user' ? item.user_id : item.group_id}
                           className={`cursor-pointer ${
@@ -653,8 +629,8 @@ const lastMessageShow = (message) => {
                         {/* Display the user name or group name */}
                         {
                           <div className="d-flex ">
-                            {/* Left Section - Avatar and Username */}
                             <div className="d-flex align-items-center">
+                                {/* Left Section - Avatar for profile picture */}
                                 <Avatar 
                                   label="" 
                                   size="large" 
@@ -668,75 +644,48 @@ const lastMessageShow = (message) => {
                                   </span>
                                   {/* Last message text and status */}
                                       <div className="d-flex align-items-center mt-1">
-                                        {/* <div>
+                                        <p className="mb-0 text-end" style={{ marginLeft: '10px' }}>
+                                          {/* Conditional rendering of message count */}                            
                                           {
-                                            Array.isArray(lastMessages) && lastMessages.length > 0 ? (
-                                              lastMessages.map((message) => {
-                                                if ((item.type === 'user' && message.receiver_id || message.sender_id === item.user_id) || 
-                                                    (item.type === 'group' && message.group_id === item.group_id)) {
-                                                  return (
-                                                    <div key={message.message_id} className="d-flex align-items-center">
-                                                      <span className="">
-                                                        {message.content}
-                                                      </span>
-                                                      <span className="text-muted ms-2">
-                                                        {timeTracker(new Date(message.created_at))}
-                                                      </span>
-                                                    </div>
-                                                  );
-                                                }
-                                                return null; 
-                                              })
-                                            ) : (
-                                              <p>No messages available</p>
+                                            item.type === 'user' && Array.isArray(storeMessage) && storeMessage.some(message => {
+                                              const messageKey = Object.keys(message)[0];
+                                              return parseInt(messageKey, 10) === item.user_id && parseInt(messageKey, 10) !== checkId;
+                                            }) && (
+                                              <Badge value={
+                                                storeMessage.find(message => Object.keys(message)[0] === String(item.user_id))?.[item.user_id] || 0
+                                              } severity="success" style={{ fontSize: "12px" }} />
                                             )
                                           }
-                                      </div> */}
-                      
-                                    
-                                    
-                                    <p className="mb-0 text-end" style={{ marginLeft: '10px' }}>
-                                      {/* Conditional rendering of message count */}                            
-                                      {
-                                        item.type === 'user' && Array.isArray(storeMessage) && storeMessage.some(message => {
-                                          const messageKey = Object.keys(message)[0];
-                                          return parseInt(messageKey, 10) === item.user_id && parseInt(messageKey, 10) !== checkId;
-                                        }) && (
-                                          <Badge value={
-                                            storeMessage.find(message => Object.keys(message)[0] === String(item.user_id))?.[item.user_id] || 0
-                                          } severity="success" style={{ fontSize: "12px" }} />
-                                        )
-                                      }
-                                      {
-                                        item.type === 'group' && (
-                                          <div>
-                                            {item.group_id !== currentGroupId && item.sender_id !== userId ? (
-                                              <Badge 
-                                                value={
-                                                  groupMessageStore.find(group => group.group_id === item.group_id)?.unread || null
-                                                } 
-                                                severity="success" 
-                                                style={{ fontSize: "12px"}} 
-                                              />
-                                            ) : null}
-                                          </div>
-                                        )
-                                      }
-                                    </p> 
-                                  </div>
+                                          {
+                                            item.type === 'group' && (
+                                              <div>
+                                                {item.group_id !== currentGroupId && item.sender_id !== userId ? (
+                                                  <Badge 
+                                                    value={
+                                                      groupMessageStore.find(group => group.group_id === item.group_id)?.unread || null
+                                                    } 
+                                                    severity="success" 
+                                                    style={{ fontSize: "12px"}} 
+                                                  />
+                                                ) : null}
+                                              </div>
+                                            )
+                                          }
+                                        </p> 
+                                      </div>
                                 </div>
-                            </div>
-                            <div>
-                              {item.type === 'user' && activeUsers.some(
-                                (activeUser) => String(activeUser.userId) === String(item.user_id)
-                              ) && (
-                                <span className="badge bg-success position-absolute top-0 end-0 m-2">
-                                  Active
-                                </span>
-                              )}
-                            </div>
-                            <div> 
-                            </div>
+                                </div>
+                                <div>
+                                  {item.type === 'user' && activeUsers.some(
+                                    (activeUser) => String(activeUser.userId) === String(item.user_id)
+                                  ) && (
+                                    <span className="badge bg-success position-absolute top-0 end-0 m-2">
+                                      Active
+                                    </span>
+                                  )}
+                                </div>
+                                <div> 
+                                </div>
                           </div>
                         }
                       </ListGroup.Item>
@@ -762,7 +711,6 @@ const lastMessageShow = (message) => {
               <strong style={{textTransform:"capitalize"}}>{receiverName}</strong>
             </div>
           )}
-          
           {showGroupName && getGroupId && (
             <div className="mb-2 d-flex align-items-center">
               <Avatar 
@@ -777,7 +725,6 @@ const lastMessageShow = (message) => {
                   className="d-flex flex-row flex-wrap gap-2"
                   style={{ listStyleType: "none", paddingLeft: 0 }}
                 >
-
                   {selectedGroup.length > 0 ? (
                     selectedGroup.map((user) => (
                       <li key={user.user_id}>
@@ -796,7 +743,6 @@ const lastMessageShow = (message) => {
             </div>
           )}
 
-
           {/* Typing indicator */}
           {typingUsers.length > 0 && (
             <div className="mb-2">
@@ -809,7 +755,6 @@ const lastMessageShow = (message) => {
               </ul>
             </div>
           )}
-          
 
           {/* Message Display Section */}
           <div
@@ -871,7 +816,7 @@ const lastMessageShow = (message) => {
                             transform: "translateY(-50%)",
                             visibility: hoverMessage === msg.message_id ? "visible" : "hidden", 
                           }}
-                          onClick={() => handleReplyClick(msg)}  // Handle reply
+                          onClick={() => handleReplyClick(msg)}  
                         >
                           Reply
                         </Button>
@@ -971,8 +916,6 @@ const lastMessageShow = (message) => {
                 <div>No messages yet.</div>
               )}
           </div>
-          {/* Message Input Section */}
-
 
           {isShow && (
             <Form
@@ -1103,8 +1046,6 @@ const lastMessageShow = (message) => {
 
         </Col>
       </Row>
-      
-      
       {/* Create Group Dialog */}
       <Dialog
         header="Create New Group"
@@ -1168,8 +1109,6 @@ const lastMessageShow = (message) => {
 
       
       </Dialog>
-    
-    
     </Container>
   );
 }
