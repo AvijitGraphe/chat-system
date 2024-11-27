@@ -36,8 +36,9 @@ function websocketRoute(server) {
             const decoded = jwt.verify(token, JWT_SECRET);
             const userId = decoded.id;
             socket.userId = userId;
-            // Store the socket for the user
+            
             clients[userId] = socket;
+            
             socket.emit('connected', {userId});
             broadcastActiveUsers();
 
@@ -151,6 +152,9 @@ function websocketRoute(server) {
                         }
                     }
                     broadcastGroupMessage(newMessage, filePaths);
+                    
+                   
+
                 } catch (err) {
                     console.error('Error saving group message:', err);
                     socket.emit('error', { message: 'Group message send failed' });
@@ -159,56 +163,128 @@ function websocketRoute(server) {
             
 
 
-            // Function to broadcast the message to all users in the group
-            function broadcastGroupMessage(message, files) {
-                const messageData = {
-                    message_id: message.message_id,
-                    sender_id: message.sender_id,
-                    group_id: message.group_id,
-                    content: message.content,
-                    prevContent: message.prevContent,
-                    content: message.content,
-                    sender_name: message.sender_name,
-                    rebackName: message.rebackName,
-                    timestamp: message.timestamp,
-                    files: files || [], 
-                };
-                const groupUsers = groups[message.group_id] || [];
-                groupUsers.forEach(userId => {
-                    if (clients[userId]) {
-                        clients[userId].emit('receiveGroupMessage', messageData);
-                    } else {
-                        console.log(`No client found for user ${userId}`);
-                    }
-                });
-            }
+            // Function to broadcast the message to group members, but notify users not in the group
+function broadcastGroupMessage(message, files) {
+    const messageData = {
+        message_id: message.message_id,
+        sender_id: message.sender_id,
+        group_id: message.group_id,
+        content: message.content,
+        prevContent: message.prevContent,
+        sender_name: message.sender_name,
+        rebackName: message.rebackName,
+        timestamp: message.timestamp,
+        files: files || [],
+    };
+
+    const groupUsers = groups[message.group_id] || [];
+    const activeUsers = Object.keys(clients);
+
+    // Broadcast message to group members
+    groupUsers.forEach(userId => {
+        if (clients[userId]) {
+            clients[userId].emit('receiveGroupMessage', messageData);
+        } else {
+            console.log(`No client found for user ${userId}`);
+        }
+    });
+
+    // Send notification to active users who are NOT part of the group
+    activeUsers.forEach(userId => {
+        if (!groupUsers.includes(userId) && clients[userId]) {
+            // Sending a notification to users not in the group
+            clients[userId].emit('receiveGroupNotification', {
+                message: `New message in Group ${message.group_id}`,
+                group_id: message.group_id,
+                sender_name: message.sender_name,
+            });
+        }
+    });
+}
+
+// Join a group
+socket.on('joinGroup', (groupId) => {
+    console.log(groupId);
+    if (!groups[groupId]) {
+        groups[groupId] = [];
+    }
+    if (!groups[groupId].includes(userId)) {
+        groups[groupId].push(userId);
+        socket.join(groupId);
+        io.to(groupId).emit('userJoinedGroup', { userId, groupId });
+    }
+});
+
+// Leave a group
+socket.on('leaveGroup', (groupId) => {
+    const groupMembers = groups[groupId];
+    if (groupMembers) {
+        const index = groupMembers.indexOf(userId);
+        if (index > -1) {
+            groupMembers.splice(index, 1);
+            socket.leave(groupId);
+            io.to(groupId).emit('userLeftGroup', { userId, groupId });
+        }
+    }
+});
+
+
+
+            // Function to broadcast the message to
+            // function broadcastGroupMessage(message, files) {
+            //     const messageData = {
+            //         message_id: message.message_id,
+            //         sender_id: message.sender_id,
+            //         group_id: message.group_id,
+            //         content: message.content,
+            //         prevContent: message.prevContent,
+            //         content: message.content,
+            //         sender_name: message.sender_name,
+            //         rebackName: message.rebackName,
+            //         timestamp: message.timestamp,
+            //         files: files || [], 
+            //     };
+
+            //     const groupUsers = groups[message.group_id] || [];
+                
+            //     groupUsers.forEach(userId => {
+            //         if (clients[userId]) {
+            //             clients[userId].emit('receiveGroupMessage', messageData);
+            //         } else {
+            //             console.log(`No client found for user ${userId}`);
+            //         }
+            //     });
+
+            // }
+
+
 
 
             // Join a group
-            socket.on('joinGroup', (groupId) => {
-                if (!groups[groupId]) {
-                    groups[groupId] = [];
-                }
-                if (!groups[groupId].includes(userId)) {
-                    groups[groupId].push(userId);
-                    socket.join(groupId);
-                    io.to(groupId).emit('userJoinedGroup', { userId, groupId });
-                }
-            });
+            // socket.on('joinGroup', (groupId) => {
+            //     console.log(groupId);
+            //     if (!groups[groupId]) {
+            //         groups[groupId] = [];
+            //     }
+            //     if (!groups[groupId].includes(userId)) {
+            //         groups[groupId].push(userId);
+            //         socket.join(groupId);
+            //         io.to(groupId).emit('userJoinedGroup', { userId, groupId });
+            //     }
+            // });
 
             // Leave a group
-            // On the backend: handle the user leaving a group
-            socket.on('leaveGroup', (groupId) => {
-                const groupMembers = groups[groupId];
-                if (groupMembers) {
-                    const index = groupMembers.indexOf(userId);
-                    if (index > -1) {
-                        groupMembers.splice(index, 1); 
-                        socket.leave(groupId); 
-                        io.to(groupId).emit('userLeftGroup', { userId, groupId });
-                    }
-                }
-            });
+            // socket.on('leaveGroup', (groupId) => {
+            //     const groupMembers = groups[groupId];
+            //     if (groupMembers) {
+            //         const index = groupMembers.indexOf(userId);
+            //         if (index > -1) {
+            //             groupMembers.splice(index, 1); 
+            //             socket.leave(groupId); 
+            //             io.to(groupId).emit('userLeftGroup', { userId, groupId });
+            //         }
+            //     }
+            // });
 
             // Leave a group
             // Leave a one-to-one conversation

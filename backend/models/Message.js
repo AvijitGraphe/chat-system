@@ -67,10 +67,19 @@ const Message = sequelize.define("Message", {
     defaultValue: 'uncheck', 
     allowNull: false,
   },
+  created_at: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW
+  },
+  updated_at: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW
+  }
 }, {
   timestamps: true, 
   tableName: "Message",
-  underscored: true,
+  createdAt: 'created_at',
+  updatedAt: 'updated_at'
 });
 
 

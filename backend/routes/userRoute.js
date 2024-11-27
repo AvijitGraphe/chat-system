@@ -7,6 +7,7 @@ const jwt = require("jsonwebtoken");
 const { Op, where } = require('sequelize');
 const Group = require('../models/Group');
 const GroupMember = require('../models/GroupMember');
+const GroupMessageRead = require('../models/GroupMessageRead');
 
 
 require("dotenv").config();
@@ -122,7 +123,7 @@ router.get('/messages', async (req, res) => {
                     { group_id: groupId },
                 ],
             },
-            order: [['createdAt', 'desc']],
+            order: [['create_at', 'desc']],
         });
         res.status(200).json(messages);
     } catch (error) {
@@ -303,7 +304,7 @@ router.get('/getGroupMessages', async (req, res) => {
                     prevContent: msg.prevContent,
                     prevMessageId: msg.prevMessageId,
                     rebackName: msg.rebackName,
-                    timestamp: msg.createdAt, 
+                    timestamp: msg.created_at,
                     files: files.map(file => ({
                         file_id: file.file_id,
                         file_name: file.file_name,
@@ -385,6 +386,125 @@ router.get('/getMessageLength', async (req, res) => {
 
 
   
+
+
+
+
+router.get('/getGroupMessageLength', async (req, res) => {
+    try {
+        const { userId } = req.query;
+        // Find all groups the user is a member of
+        const groups = await GroupMember.findAll({
+            where: { user_id: userId }
+        });
+        if (!groups.length) {
+            return res.status(404).json({ error: 'User is not a member of any group' });
+        }
+        const groupIds = groups.map(group => group.group_id);
+        const messages = await Message.findAll({
+            where: {
+                group_id: groupIds,
+                status: 'uncheck',
+                sender_id: {
+                    [Op.ne]: userId  
+                }
+            }
+        });
+        if (!messages.length) {
+            return res.status(202).json([]);
+        }
+        const readMessages = await GroupMessageRead.findAll({
+            where: {
+                group_id: groupIds,
+                user_id: userId,
+                status: 'check'  
+            }
+        });
+        const readMessageIds = new Set(readMessages.map(read => read.message_id));
+        const messageDetails = messages.map(message => {
+            const isRead = readMessageIds.has(message.message_id);
+            return {
+                group_id: message.group_id,
+                sender_id: message.sender_id,
+                unread: isRead ? 0 : 1 
+            };
+        });
+        const groupedMessageDetails = messageDetails.reduce((acc, msg) => {
+            const group = acc.find(g => g.group_id === msg.group_id);
+            if (group) {
+                group.unread += msg.unread;
+            } else {
+                acc.push({
+                    group_id: msg.group_id,
+                    unread: msg.unread,
+                });
+            }
+            return acc;
+        }, []);
+
+        res.json(groupedMessageDetails);
+
+    } catch (error) {
+        console.error("Error fetching messages:", error);
+        res.status(500).json({ error: "Failed to retrieve messages" });
+    }
+});
+
+
+
+
+
+
+
+router.post('/getGroupMessageRead', async (req, res) => {
+    try {
+        const { userId, groupId } = req.body; 
+        // Check if the user is a member of the group
+        const groupMember = await GroupMember.findOne({
+            where: {
+                user_id: userId,
+                group_id: groupId
+            }
+        });
+        if (!groupMember) {
+            return res.status(404).json({ error: 'User is not a member of this group' });
+        }
+
+        const messages = await Message.findAll({
+            where: {
+                group_id: groupId, 
+                status: 'uncheck',   
+                sender_id: {          
+                    [Op.ne]: userId   
+                }
+            }
+        });
+
+        // If no messages are found
+        if (!messages.length) {
+            return res.status(404).json({ error: 'No unchecked messages found' });
+        }
+
+        // Mark messages as read for the user
+        const data = await Promise.all(messages.map(async (msg) => {
+            // Upsert read status for each message
+            const readResponse = await GroupMessageRead.upsert({
+                user_id: userId,
+                group_id: groupId,
+                message_id: msg.message_id,
+                status: 'check', // Mark as read
+            });
+            return readResponse;
+        }));
+
+        // Send response with data
+        res.status(200).json(data);
+    } catch (error) {
+        console.error("Error marking messages as read:", error);
+        res.status(500).json({ error: "Failed to mark messages as read" });
+    }
+});
+
 
 
 

@@ -41,7 +41,9 @@ export default function Message() {
   const [replyingTo, setReplyingTo] = useState(null);
   const [getUserIdActive, setGetUserIdActive] = useState(null);
   const [storeMessage, setStoreMessage] = useState([]);
-
+  const [groupMessageStore, setGroupMessageStore] = useState([]);
+  
+  const [prevGroupId, setPrevGroupId] = useState(null);
 
   //chat contaienr ref..
   const chatcontainerRef = useRef(null)
@@ -86,6 +88,9 @@ export default function Message() {
     setGetUserIdActive(user.user_id);
     handleCheckId(user.user_id);
     clearStoreMessage(user.user_id);
+
+    handleLeaveGroup(prevGroupId);
+
   };
 
 
@@ -110,6 +115,7 @@ export default function Message() {
       const response = await axios.get(`${config.apiUrl}/api/getMessages`, {
         params: { userId, otherUserId: receiverId },
       });
+      console.log(response.data);
       setMessages(response.data);
       setReplyingTo([]);
     } catch (error) {
@@ -164,7 +170,12 @@ export default function Message() {
         //show of the message in the chat
         {
           if (newMessage.receiver_id === parseInt(userId, 10)) {
-            setMessages((prevMessages) => [...prevMessages, newMessage]);
+
+            if(newMessage.receiver_id){
+
+              setMessages((prevMessages) => [...prevMessages, newMessage]);
+            
+            }
             responseMessage(newMessage);
           } else {
             console.log("Message doesn't belong to the current user.");
@@ -187,7 +198,6 @@ export default function Message() {
       const handleActiveUserList = (activeUsers) => {
         setActiveUsers(activeUsers);
       };
-
 
       socket.on("senderMessage", senderMessage);
       socket.on("typing", handleTyping);
@@ -226,6 +236,7 @@ export default function Message() {
     fetchUserList();
     handleShowGroups(userId);
     handleShowLength(userId);
+    handelGroupMessageLnegth(userId);
   }, [userId]);
 
 
@@ -304,6 +315,7 @@ export default function Message() {
       if (response.status === 200) {
         setSelectedGroup(response.data);
         handleJoinGroup(group.group_id);
+        handelGroupMessageRead(userId, group.group_id);
       } else {
         console.error("Failed to fetch group members", response);
       }
@@ -354,6 +366,7 @@ export default function Message() {
     if (socket) {
       socket.emit("joinGroup", groupId);
     }
+    setPrevGroupId(groupId);
   };
 
   //Leave group
@@ -361,6 +374,7 @@ export default function Message() {
     if (socket) {
       socket.emit("leaveGroup", groupId);
     }
+    console.log(groupId);
   };
   
   //For checking the user id
@@ -372,19 +386,86 @@ export default function Message() {
 
 
   // Handle receiving a group message
+  // useEffect(() => {
+  //   if (socket) {
+  //       const handleReceiveGroupMessage = (newMessage) => {
+  //         console.log(newMessage);
+  //       if (newMessage.group_id === currentGroupId) {
+  //         if(newMessage.group_id){
+  //           setMessages((prevMessages) => [...prevMessages, newMessage]);
+  //         }
+  //       }
+  //     };
+  //       socket.on("receiveGroupMessage", handleReceiveGroupMessage);
+  //     return () => {
+  //       socket.off("receiveGroupMessage", handleReceiveGroupMessage);
+  //     };
+  //   }
+  // }, [socket, currentGroupId]);
+  
+
+  const [notifications, setNotifications] = useState([]);
+
   useEffect(() => {
     if (socket) {
+      // Handle incoming group messages
       const handleReceiveGroupMessage = (newMessage) => {
+        console.log("Received message:", newMessage);
         if (newMessage.group_id === currentGroupId) {
           setMessages((prevMessages) => [...prevMessages, newMessage]);
+          handelGroupMessageRead(newMessage.group_id, userId); //clear rhe mesage..!
+        } else {
+          console.log(`Message from a different group (group_id: ${newMessage.group_id}):`, newMessage);
+        }
+      };
+  
+      // Handle notifications for groups user;
+      const handleReceiveGroupNotification = (notification) => {
+        if (notification.group_id !== currentGroupId) {
+          handelGroupMessageLnegth(userId)
         }
       };
       socket.on("receiveGroupMessage", handleReceiveGroupMessage);
+      socket.on("receiveGroupNotification", handleReceiveGroupNotification);
       return () => {
         socket.off("receiveGroupMessage", handleReceiveGroupMessage);
+        socket.off("receiveGroupNotification", handleReceiveGroupNotification);
       };
     }
   }, [socket, currentGroupId]);
+  
+  
+
+  
+  
+
+
+
+
+  //get unread message length
+  const handelGroupMessageLnegth = async (userId) => {
+    const response = await axios.get(`${config.apiUrl}/api/getGroupMessageLength`, {
+      params: { userId },
+    });
+    setGroupMessageStore(response.data);
+  }
+
+
+  
+  //get unread message and read message
+  const handelGroupMessageRead = async (userId, groupId) => {
+    try {
+          await axios.post(`${config.apiUrl}/api/getGroupMessageRead`, {
+            userId,
+            groupId
+        });
+        handelGroupMessageLnegth(userId)
+    } catch (error) {
+        console.error('Error marking messages as read:', error);
+    }
+}
+
+
 
   //get group messge get all the messages in the group
   const handleGetGroupMessages = async (groupId) => {
@@ -455,38 +536,38 @@ export default function Message() {
   const handleInputChange = (e) => {
     setInputValue(e.target.value);
     // If there is text input
-    if (e.target.value.length > 0) {
-      if (getGroupId) {
-        socket.emit("typing", getGroupId, userId, userName);
-        setTyping(true);
-      } else if (checkId) {
-        socket.emit("userTyping", userId, userName, checkId);
-        setTyping(true);
-      } else {
-        return null;
-      }
+    // if (e.target.value.length > 0) {
+    //   if (getGroupId) {
+    //     socket.emit("typing", getGroupId, userId, userName);
+    //     setTyping(true);
+    //   } else if (checkId) {
+    //     socket.emit("userTyping", userId, userName, checkId);
+    //     setTyping(true);
+    //   } else {
+    //     return null;
+    //   }
   
-      // Clear previous timeout, then set a new one
-      clearTimeout(typingTimeout);
-      typingTimeout = setTimeout(() => {
-        if (getGroupId) {
-          socket.emit("stopTyping", getGroupId, userId, userName);
-        } else if (checkId) {
-          socket.emit("userStopTyping", userId, userName, checkId);
-        }
-        setTyping(false);
-      }, 1000);
+    //   // Clear previous timeout, then set a new one
+    //   clearTimeout(typingTimeout);
+    //   typingTimeout = setTimeout(() => {
+    //     if (getGroupId) {
+    //       socket.emit("stopTyping", getGroupId, userId, userName);
+    //     } else if (checkId) {
+    //       socket.emit("userStopTyping", userId, userName, checkId);
+    //     }
+    //     setTyping(false);
+    //   }, 1000);
   
-    } else {
-      // If input is cleared, stop typing immediately
-      clearTimeout(typingTimeout);
-      if (getGroupId) {
-        socket.emit("stopTyping", getGroupId, userId, userName);
-      } else if (checkId) {
-        socket.emit("userStopTyping", userId, userName, checkId);
-      }
-      setTyping(false);
-    }
+    // } else {
+    //   // If input is cleared, stop typing immediately
+    //   clearTimeout(typingTimeout);
+    //   if (getGroupId) {
+    //     socket.emit("stopTyping", getGroupId, userId, userName);
+    //   } else if (checkId) {
+    //     socket.emit("userStopTyping", userId, userName, checkId);
+    //   }
+    //   setTyping(false);
+    // }
   };
   
   
@@ -497,8 +578,43 @@ export default function Message() {
     setInputValue("");
   };
 
-  
 
+
+// Helper function to format the date
+const formatDate = (messageDate) => {
+  const now = new Date();
+  const messageDateObj = new Date(messageDate);
+
+  // Check if the message is valid
+  if (isNaN(messageDateObj)) {
+    console.error("Invalid date:", messageDate);
+    return " ";  // Default for invalid date
+  }
+
+  const isToday = now.toDateString() === messageDateObj.toDateString();
+  const isYesterday = (now - messageDateObj) / (1000 * 60 * 60 * 24) === 1;
+
+  if (isToday) {
+    return "Today";
+  } else if (isYesterday) {
+    return "Yesterday";
+  } else {
+    // Extract day, month, and year from the date object
+    const day = messageDateObj.getDate().toString().padStart(2, "0");  // Add leading zero if necessary
+    const month = (messageDateObj.getMonth() + 1).toString().padStart(2, "0");  // Months are zero-indexed
+    const year = messageDateObj.getFullYear();
+
+    // Return formatted date as dd/mm/yyyy
+    return `${day}/${month}/${year}`;
+  }
+};
+
+
+
+
+
+
+  
 
   return (
     <Container className="py-4 bg-light">
@@ -575,6 +691,30 @@ export default function Message() {
                             </span>
                           )
                         }
+
+                        {/* Display the length of sender_id */}
+
+
+                        {item.type === 'group' && (
+                          <div>
+                            {item.group_id !== currentGroupId && item.sender_id !== userId ? (
+                              <span 
+                                className="sender-id-length position-absolute top-0 start-25 m-2" 
+                                style={{ fontSize: "12px", color: "green" }}>
+                                {
+                                  groupMessageStore.find(group => group.group_id === item.group_id)?.unread || null
+                                }
+                              </span>
+                            ) : null}
+                          </div>
+                        )}
+
+
+
+
+
+
+
           
                         {/* Check if the user or group is active */}
                         {item.type === 'user' && activeUsers.some(
@@ -643,139 +783,164 @@ export default function Message() {
             </div>
           )}
 
-
           {/* Message Display Section */}
           <div
-            className="flex-grow-1 overflow-auto border border-light rounded p-3 mb-2"
-            style={{ height: "400px", backgroundColor: "#f1f1f1" }}
-            ref={chatcontainerRef}
-          >
-            {messages.length > 0 ? (
-              messages.map((msg) => {
-                const isSender = parseInt(msg.sender_id, 10) === parseInt(userId, 10); 
-                return (
-                  <div
-                    key={msg.message_id}
-                    className={`d-flex mb-2 ${isSender ? "justify-content-end" : "justify-content-start"}`}
-                  >
+              className="flex-grow-1 overflow-auto border border-light rounded p-3 mb-2"
+              style={{ height: "400px", backgroundColor: "#f1f1f1" }}
+              ref={chatcontainerRef}
+            >
+              {messages.length > 0 ? (
+                messages.map((msg, index) => {
+                  const isSender = parseInt(msg.sender_id, 10) === parseInt(userId, 10); 
+                  
+                  // Format the date
+                  const formattedDate = formatDate(msg.timestamp);
+
+                  const showDate = index === 0 || formattedDate !== formatDate(messages[index - 1].timestamp);
+                  
+                  return (
                     <div
-                      className="message-bubble p-2"
-                      style={{
-                        backgroundColor: isSender ? "#007bff" : "#f0f0f0",
-                        color: isSender ? "#fff" : "#000",
-                        borderRadius: "15px",
-                        maxWidth: "80%",
-                        position: "relative",
-                      }}
-                      onMouseEnter={() => setHoverMessage(msg.message_id)} 
-                      onMouseLeave={() => setHoverMessage(null)}
+                      key={msg.message_id}
+                      className={`d-flex mb-2 ${isSender ? "justify-content-end" : "justify-content-start"}`}
                     >
-                      {/* Displaying the Button */}
-                      <Button
+
+                    
+                    
+                      {showDate && (
+                        <div
+                          style={{
+                            width: "100%",  
+                            textAlign: "center",  
+                            margin: "10px 0",  
+                          }}
+                        >
+                          <p className="message-date" style={{ fontSize: "0.8rem", color: "#888" }}>
+                            {formattedDate}
+                          </p>
+                        </div>
+                      )}
+
+
+                      <div
+                        className="message-bubble p-2"
                         style={{
-                          position: "absolute",  
-                          left: isSender ? "0" : "auto",  
-                          right: !isSender ? "0" : "auto", 
-                          top: "50%",
-                          transform: "translateY(-50%)",
-                          visibility: hoverMessage === msg.message_id ? "visible" : "hidden", 
+                          backgroundColor: isSender ? "#007bff" : "#f0f0f0",
+                          color: isSender ? "#fff" : "#000",
+                          borderRadius: "15px",
+                          maxWidth: "80%",
+                          position: "relative",
                         }}
-                        onClick={() => handleReplyClick(msg)}  // Handle reply
+                        onMouseEnter={() => setHoverMessage(msg.message_id)} 
+                        onMouseLeave={() => setHoverMessage(null)}
                       >
-                        Reply
-                      </Button>
-                      {/* Reply content (if any) */}
-                      {msg.prevContent && (
-                        <div className="reply-content" style={{ marginBottom: "10px", padding: "10px", backgroundColor: "#BEB8B8FF", borderRadius: "5px" }}>
-                          <strong>Replying to:</strong>
-                          <p>{msg.rebackName}</p>
-                          <p>{msg.prevContent}</p>
-                        </div>
-                      )}
-                      {/* Message Sender Name */}
-                      <strong>
-                        {isSender ? "You" : msg.sender_name}
-                      </strong>
-                      {/* Message Content */}
-                      <p>{msg.content}</p>
-                      {/* Display Files (if any) */}
-                      {msg.files && msg.files.length > 0 && (
-                        <div className="mt-2">
-                          <ul style={{ listStyleType: "none", paddingLeft: "0" }}>
-                            {msg.files.map((file) => (
-                              <li key={file.file_id}>
-                                {/* File type handling */}
-                                {file.file_name && (
-                                  <>
-                                    {/* If the file is an image */}
-                                    {file.file_name.match(/\.(jpg|jpeg|png|gif)$/i) && (
-                                      <div className="mt-2">
-                                        <img
-                                          src={`${fileUrl}/${file.file_name}`}
-                                          alt="Uploaded file"
-                                          style={{
-                                            maxWidth: "200px",
-                                            maxHeight: "200px",
-                                          }}
-                                        />
-                                      </div>
-                                    )}
+                        {/* Displaying the Button */}
+                        <Button
+                          style={{
+                            position: "absolute",  
+                            left: isSender ? "0" : "auto",  
+                            right: !isSender ? "0" : "auto", 
+                            top: "50%",
+                            transform: "translateY(-50%)",
+                            visibility: hoverMessage === msg.message_id ? "visible" : "hidden", 
+                          }}
+                          onClick={() => handleReplyClick(msg)}  // Handle reply
+                        >
+                          Reply
+                        </Button>
 
-                                    {/* If the file is a PDF */}
-                                    {file.file_name.match(/\.(pdf)$/i) && (
-                                      <div className="mt-2">
-                                        <a
-                                          href={file.file_url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                        >
-                                          <strong>View PDF</strong>
-                                        </a>
-                                      </div>
-                                    )}
+                        {/* Reply content (if any) */}
+                        {msg.prevContent && (
+                          <div className="reply-content" style={{ marginBottom: "10px", padding: "10px", backgroundColor: "#BEB8B8FF", borderRadius: "5px" }}>
+                            <strong>Replying to:</strong>
+                            <p>{msg.rebackName}</p>
+                            <p>{msg.prevContent}</p>
+                          </div>
+                        )}
 
-                                    {/* If the file is an Excel file */}
-                                    {file.file_name.match(/\.(xls|xlsx)$/i) && (
-                                      <div className="mt-2">
-                                        <a
-                                          href={file.file_url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                        >
-                                          <strong>View Excel File</strong>
-                                        </a>
-                                      </div>
-                                    )}
+                        {/* Message Sender Name */}
+                        <strong>
+                          {isSender ? "You" : msg.sender_name}
+                        </strong>
 
-                                    {/* Default fallback for other file types */}
-                                    {!file.file_name.match(/\.(jpg|jpeg|png|gif|pdf|xls|xlsx)$/i) && (
-                                      <div className="mt-2">
-                                        <a
-                                          href={file.file_url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                        >
-                                          <strong>Download File</strong>
-                                        </a>
-                                      </div>
-                                    )}
-                                  </>
-                                )}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
+                        {/* Message Content */}
+                        <p>{msg.content}</p>
+
+                        {/* Display Files (if any) */}
+                        {msg.files && msg.files.length > 0 && (
+                          <div className="mt-2">
+                            <ul style={{ listStyleType: "none", paddingLeft: "0" }}>
+                              {msg.files.map((file) => (
+                                <li key={file.file_id}>
+                                  {/* File type handling */}
+                                  {file.file_name && (
+                                    <>
+                                      {/* If the file is an image */}
+                                      {file.file_name.match(/\.(jpg|jpeg|png|gif)$/i) && (
+                                        <div className="mt-2">
+                                          <img
+                                            src={`${fileUrl}/${file.file_name}`}
+                                            alt="Uploaded file"
+                                            style={{
+                                              maxWidth: "200px",
+                                              maxHeight: "200px",
+                                            }}
+                                          />
+                                        </div>
+                                      )}
+
+                                      {/* If the file is a PDF */}
+                                      {file.file_name.match(/\.(pdf)$/i) && (
+                                        <div className="mt-2">
+                                          <a
+                                            href={file.file_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                          >
+                                            <strong>View PDF</strong>
+                                          </a>
+                                        </div>
+                                      )}
+
+                                      {/* If the file is an Excel file */}
+                                      {file.file_name.match(/\.(xls|xlsx)$/i) && (
+                                        <div className="mt-2">
+                                          <a
+                                            href={file.file_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                          >
+                                            <strong>View Excel File</strong>
+                                          </a>
+                                        </div>
+                                      )}
+
+                                      {/* Default fallback for other file types */}
+                                      {!file.file_name.match(/\.(jpg|jpeg|png|gif|pdf|xls|xlsx)$/i) && (
+                                        <div className="mt-2">
+                                          <a
+                                            href={file.file_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                          >
+                                            <strong>Download File</strong>
+                                          </a>
+                                        </div>
+                                      )}
+                                    </>
+                                  )}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div>No messages yet.</div>
-            )}
+                  );
+                })
+              ) : (
+                <div>No messages yet.</div>
+              )}
           </div>
-
-
           {/* Message Input Section */}
 
 
