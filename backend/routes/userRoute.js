@@ -179,6 +179,7 @@ router.get('/getMessages', async (req, res) => {
                     prevContent: msg.prevContent,
                     prevMessageId: msg.prevMessageId,
                     rebackName: msg.rebackName,
+                    status: msg.status,
                     files: files.map(file => ({
                         file_id: file.file_id,
                         file_name: file.file_name
@@ -192,8 +193,6 @@ router.get('/getMessages', async (req, res) => {
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
-
-
 
 
 // Create Group
@@ -219,7 +218,6 @@ router.post('/createGroup', async (req, res) => {
 });
 
 
-
 // Get Groups
 router.get('/getGroups', async (req, res) => {
     const { userId } = req.query;
@@ -241,8 +239,6 @@ router.get('/getGroups', async (req, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 });
-
-
 
 
 router.get('/getGroupMembers', async (req, res) => {
@@ -305,6 +301,7 @@ router.get('/getGroupMessages', async (req, res) => {
                     prevMessageId: msg.prevMessageId,
                     rebackName: msg.rebackName,
                     timestamp: msg.created_at,
+                    status:msg.status,
                     files: files.map(file => ({
                         file_id: file.file_id,
                         file_name: file.file_name,
@@ -362,7 +359,7 @@ router.get('/getMessageLength', async (req, res) => {
             }
         });
         if (messages.length === 0) {
-            return res.status(404).json({ message: 'No unchecked messages found' });
+            return res.status(202).json([]);
         }
         const [updatedCount] = await Message.update(
             { status: 'check' },
@@ -382,12 +379,6 @@ router.get('/getMessageLength', async (req, res) => {
         res.status(500).json({ error: "Failed to clear messages" });
     }
 });
-
-
-
-  
-
-
 
 
 router.get('/getGroupMessageLength', async (req, res) => {
@@ -454,10 +445,6 @@ router.get('/getGroupMessageLength', async (req, res) => {
 
 
 
-
-
-
-
 router.post('/getGroupMessageRead', async (req, res) => {
     try {
         const { userId, groupId } = req.body; 
@@ -512,7 +499,7 @@ router.get('/getLastMessagesByUser', async (req, res) => {
         const { userId, user_ids } = req.query;
         const userIdsArray = Array.isArray(user_ids) ? user_ids : JSON.parse(user_ids);
         if (!userId || !userIdsArray || userIdsArray.length === 0) {
-            return res.status(400).json({ error: "Missing userId or user_ids" });
+            return res.status(202).json([]);
         }
         const lastMessages = [];
         for (const receiverId of userIdsArray) {
@@ -589,7 +576,6 @@ router.get('/getLastGroupMessage', async (req, res) => {
         });
         const lastMessages = await Promise.all(lastMessagesPromises);
         res.json(lastMessages);
-        console.log("lastMessages", lastMessages);
     } catch (error) {
         console.error('Error fetching last group message:', error);
         res.status(500).json({ error: 'Internal server error' });

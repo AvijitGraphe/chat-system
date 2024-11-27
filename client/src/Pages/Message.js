@@ -12,6 +12,9 @@ import { FiPaperclip } from "react-icons/fi";
 import { FiX } from "react-icons/fi";
 import { Avatar } from 'primereact/avatar';
 import { Badge } from 'primereact/badge';
+
+import 'primeicons/primeicons.css';
+        
         
 
 export default function Message() {
@@ -51,6 +54,7 @@ export default function Message() {
   const [lastMessages, setLastMessages] = useState([]);
   const [storeUserList, setStoreUserList] = useState([]);
   const [lastGroupMessage, setLastGroupMessage] = useState([]);
+  const [tick, setTick] = useState(false);
 
 
   //chat contaienr ref..
@@ -187,12 +191,10 @@ useEffect(() => {
       //show of the message in the chat
       {
         if (newMessage.receiver_id === parseInt(userId, 10)) {
-
           if(newMessage.receiver_id){
+            responseMessage(newMessage);
             setMessages((prevMessages) => [...prevMessages, newMessage]);
           }
-          responseMessage(newMessage);
-          console.log("Message doesn't belong to the current user.", userlist);
         } else {
           console.log("Message doesn't belong to the current user.");
         }
@@ -244,6 +246,24 @@ const responseMessage= (newMessage) => {
     console.log("no data response")
   }
 };
+
+
+useEffect(() => {
+  if (socket) {
+    socket.on('response', (data) => {
+      if(socket){
+        console.log('Response from server:', data);
+        if (data.status === 'check') {
+            console.log('Message was successfully updated:', data.message);
+        } else if (data.status === 'error') {
+            console.log('Error or no changes:', data.message);
+        }
+      }
+    });
+  }
+}, [socket]);
+
+
 
 
 
@@ -414,7 +434,7 @@ useEffect(() => {
         handelGroupMessageRead(newMessage.group_id, userId); 
         handleLastGroupMessage(userId);
       } else {
-        console.log(`Message from a different group (group_id: ${newMessage.group_id}):`, newMessage);
+        console.log(`Message  (group_id: ${newMessage.group_id}):`, newMessage);
       }
     };
     // Handle notifications for groups user;
@@ -570,20 +590,19 @@ const timeTracker = (timestamp) => {
 //fetch the last message
 const fetchLastMessage = async (data) => {
   try {
-    const userIds = data.map(user => user.user_id); 
+    console.log(data);
+    const userIds = data.map(user => user.user_id);
     const response = await axios.get(`${config.apiUrl}/api/getLastMessagesByUser`, {
       params: {
         userId,
-        user_ids: JSON.stringify(userIds)
+        user_ids: userIds
       }
     });
-    console.log("Last messages for users:", response.data);
     setLastMessages(response.data);
   } catch (error) {
     console.error("Error fetching last message:", error);
   }
 };
-
 
 //fetch the group message
 const handleLastGroupMessage = async (userId) => {
@@ -591,15 +610,11 @@ const handleLastGroupMessage = async (userId) => {
     const response = await axios.get(`${config.apiUrl}/api/getLastGroupMessage`, {
       params: { userId },
     });
-    console.log("Last group message:", response.data);
     setLastGroupMessage(response.data);
   } catch (error) {
     console.error("Error fetching last group message:", error);
   }
 };
-
-
-
 
 
   return (
@@ -894,10 +909,27 @@ const handleLastGroupMessage = async (userId) => {
 
                         {/* Message Content */}
                         <p>{msg.content}</p>
-
                         <p>{timeTracker(new Date(msg.timestamp))}</p>
 
+                       
+                       {/* messge confirem */}
+                       <p>
+                          { msg.status === "check" ? (
+                            <>
+                              <i className="pi pi-check" style={{ color: 'black' }}></i>
+                              <i className="pi pi-check" style={{ color: 'black' }}></i>
+                            </>
+                          ) : (
+                            <i className="pi pi-check" style={{ color: 'black' }}></i>
+                          )}
+                       </p>
+
+                       <p>
+                        {}
+                       </p>
+
                         {/* Display Files (if any) */}
+
                         {msg.files && msg.files.length > 0 && (
                           <div className="mt-2">
                             <ul style={{ listStyleType: "none", paddingLeft: "0" }}>
@@ -965,6 +997,8 @@ const handleLastGroupMessage = async (userId) => {
                             </ul>
                           </div>
                         )}
+
+
                       </div>
                     </div>
                   );

@@ -92,6 +92,7 @@ function websocketRoute(server) {
                     sender_name: message.sender_name,
                     rebackName: message.rebackName,
                     timestamp: message.created_at,
+                    status: message.status,
                     files: filePaths || [], 
                 };
                 if (clients[message.sender_id]) {
@@ -106,13 +107,32 @@ function websocketRoute(server) {
             //messagen recived response by reicever
             socket.on('respone', async (msg) => {
                 try {
-                    const logResponse = await Message.update({
-                        status: 'check',
-                    }, {where: {message_id: msg.message_id}});
+                    const [updatedRows] = await Message.update(
+                        { status: 'check' }, 
+                        { where: { message_id: msg.message_id } }  
+                    );
+                    if (updatedRows > 0) {
+                        console.log(`Message with ID ${msg.message_id} marked as 'check'`);
+                        socket.emit('responseback', {
+                            message_id: msg.message_id,
+                            status: 'check',  
+                            message: 'Message successfully updated'
+                        });
+                        console.log(`Message with ID ${msg.message_id} marked as 'check' ++++++`);
+                    } else {
+                        return null;
+                    }
                 } catch (error) {
                     console.error('Error updating message:', error);
+                    socket.emit('responseback', {
+                        message_id: msg.message_id,
+                        status: 'error',
+                        message: 'Error updating the message'
+                    });
                 }
-            })
+            });
+            
+            
 
 
 
@@ -190,10 +210,8 @@ function websocketRoute(server) {
                     }
                 });
 
-                // Send notification to active users who are NOT part of the group
                 activeUsers.forEach(userId => {
                     if (!groupUsers.includes(userId) && clients[userId]) {
-                        // Sending a notification to users not in the group
                         clients[userId].emit('receiveGroupNotification', {
                             message: `New message in Group ${message.group_id}`,
                             group_id: message.group_id,
@@ -201,6 +219,7 @@ function websocketRoute(server) {
                         });
                     }
                 });
+
             }
 
             // Join a group
