@@ -187,9 +187,7 @@ useEffect(() => {
   if (socket) {     
     const senderMessage = (newMessage) => {
       setMessages((prevMessages) => {
-        // If newMessage is an array,
         if (Array.isArray(newMessage)) {
-          // If newMessage array is empty,
           if (newMessage.length === 0) {
             return prevMessages;
           }
@@ -198,17 +196,14 @@ useEffect(() => {
           filteredMessages.forEach((msg) => {
             const messageIndex = updatedMessages.findIndex((prevMsg) => prevMsg.message_id === msg.message_id);
             if (messageIndex !== -1) {
-              // If message exists, update it
               updatedMessages[messageIndex] = { ...updatedMessages[messageIndex], ...msg };
             } else {
-              // If message doesn't exist, add it
               updatedMessages.push(msg);
             }
           });
     
           return updatedMessages;
         } 
-        // If newMessage is a single
         else {
           const messageIndex = prevMessages.findIndex((msg) => msg.message_id === newMessage.message_id);
           if (messageIndex !== -1) {
@@ -787,12 +782,8 @@ const handleLastGroupMessage = async (userId) => {
                                       </div>
                                     );
                                     
-                                    
                                   })
                               )}
-
-
-
 
                             <p className="mb-0 text-end" style={{ marginLeft: '10px' }}>
                               {/* Conditional rendering of message count */}
