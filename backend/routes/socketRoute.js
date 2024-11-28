@@ -194,7 +194,14 @@ function websocketRoute(server) {
                 // Broadcast message to group members
                 groupUsers.forEach(userId => {
                     if (clients[userId]) {
+                         
+                        
+                          
+
                         clients[userId].emit('receiveGroupMessage', messageData);
+
+
+
 
                     } else {
                         console.log(`No client found for user ${userId}`);

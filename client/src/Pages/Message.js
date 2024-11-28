@@ -1116,9 +1116,13 @@ const handleLastGroupMessage = async (userId) => {
 
                     {replyingTo && replyingTo.sender_name && replyingTo.content && (
                       <div className="replying-to">
-                        <strong>Replying to:</strong> 
+                        <div className="d-flex justify-content-between align-items-center">
+                            <strong>Replying to:</strong> 
+                            <i className="pi pi-times  p-2" onClick={() => setReplyingTo(null)}></i>
+                        </div>
                         <p className="p-0 m-0">{replyingTo.sender_name}</p>
                         <p className="px-4">{replyingTo.content}</p>
+                      
                       </div>
                     )}
 
