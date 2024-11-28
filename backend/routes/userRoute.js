@@ -350,37 +350,7 @@ router.get('/getMessageLength', async (req, res) => {
     }
  });
  
- //get api through which the clear message can be fetched
- router.get('/getClearMessage', async (req, res) => {
-    try {
-        const { clearId } = req.query;
-        const messages = await Message.findAll({
-            where: {
-                sender_id: clearId,
-                status: 'uncheck',  
-            }
-        });
-        if (messages.length === 0) {
-            return res.status(202).json([]);
-        }
-        const [updatedCount] = await Message.update(
-            { status: 'check' },
-            {
-                where: {
-                    sender_id: clearId,
-                    status: 'uncheck',
-                }
-            }
-        );
-        if (updatedCount === 0) {
-            return res.status(400).json({ message: 'No messages were updated' });
-        }
-        res.status(200).json({ message: 'Messages unchecked successfully', updatedCount });
-    } catch (error) {
-        console.error("Error fetching messages:", error);
-        res.status(500).json({ error: "Failed to clear messages" });
-    }
-});
+
 
 
 //get api through which the group message length can be fetched
@@ -392,7 +362,7 @@ router.get('/getGroupMessageLength', async (req, res) => {
             where: { user_id: userId }
         });
         if (!groups.length) {
-            return res.status(404).json({ error: 'User is not a member of any group' });
+            return res.status(202).json([]);
         }
         const groupIds = groups.map(group => group.group_id);
         const messages = await Message.findAll({
@@ -459,7 +429,7 @@ router.post('/getGroupMessageRead', async (req, res) => {
             }
         });
         if (!groupMember) {
-            return res.status(404).json({ error: 'User is not a member of this group' });
+            return res.status(202).json([]);
         }
 
         const messages = await Message.findAll({
@@ -474,7 +444,7 @@ router.post('/getGroupMessageRead', async (req, res) => {
 
         // If no messages are found
         if (!messages.length) {
-            return res.status(404).json({ error: 'No unchecked messages found' });
+            return res.status(202).json([]);
         }
 
         // Mark messages as read for the user
@@ -524,7 +494,6 @@ router.get('/getLastMessagesByUser', async (req, res) => {
         }
 
         res.json(lastMessages);
-
     } catch (error) {
         console.error("Error fetching messages:", error);
         res.status(500).json({ error: "Failed to fetch last messages" });
@@ -542,7 +511,7 @@ router.get('/getUserName', async (req, res) => {
             where: { user_id: userId }
         });
         if (!user) {
-            return res.status(404).json({ error: 'User not found' });
+            return res.status(202).json([]);
         }
         res.status(200).json(user.username);
     } catch (error) {
@@ -565,7 +534,7 @@ router.get('/getLastGroupMessage', async (req, res) => {
         const groupIds = groupMembers.map(group => group.group_id);
 
         if (groupIds.length === 0) {
-            return res.status(404).json({ error: 'User is not part of any group' });
+            return res.status(202).json([]);
         }
         const lastMessagesPromises = groupIds.map(async (groupId) => {
             const messages = await Message.findAll({

@@ -95,29 +95,37 @@ const handleUserClick = (user) => {
   setReceiverId(user.user_id);
   setReceiverName(user.username);
   setInputValue("");
-  fetchMessages(userId, user.user_id);
+ 
   setShow(true);
   setCheckId(user.user_id);
   setGetUserIdActive(user.user_id);
   handleCheckId(user.user_id);
   clearStoreMessage(user.user_id);
   handleLeaveGroup(prevGroupId);
-
+  fetchMessages(userId, user.user_id);
 };
 
 
-//clear the store message of prev are not views
+
+
+// Function to clear store message based on clearId
 const clearStoreMessage = async (clearId) => {
   try {
-      const response = await axios.get(`${config.apiUrl}/api/getClearMessage`, {
-          params: { clearId },
+    if(socket){
+      socket.emit('clearMessages', clearId);
+      socket.on('clearMessagesResponse', (response) => {
+          if (response.error) {
+              console.error("Error clearing messages:", response.error);
+          } else {
+              console.log(response.message); 
+              handleShowLength(userId); 
+          }
       });
-      handleShowLength(userId);
+    }
   } catch (error) {
-      console.error("Error clearing messages:", error);
+    console.error("Error clearing messages:", error);
   }
 };
-
 
 //get username 
 const getUserName = async (userId) => {
@@ -172,16 +180,25 @@ useEffect(() => {
 
 useEffect(() => {
   if (socket) {   
-    //message sender
     const senderMessage = (newMessage) => {
-        setMessages((prevMessages) => [...prevMessages, newMessage]);
-    };
+      setMessages((prevMessages) => {
+          const messageIndex = prevMessages.findIndex((msg) => msg.message_id === newMessage.message_id);
+          if (messageIndex !== -1) {
+              const updatedMessages = [...prevMessages];
+              updatedMessages[messageIndex] = { ...updatedMessages[messageIndex], ...newMessage };
+              return updatedMessages;
+          } else {
+              return [...prevMessages, newMessage];
+          }
+      });
+  };
+  
     //message reciver with used id and not the current user.
       const handleReceiveMessage = (newMessage) => {
         fetchLastMessage(userlist);
         //sotre the message
         if (parseInt(newMessage.sender_id, 10) !== parseInt(checkId, 10)) {
-          handleShowLength(userId);
+              handleShowLength(userId);
         }
       //length of the store message
       if (
@@ -193,7 +210,16 @@ useEffect(() => {
         if (newMessage.receiver_id === parseInt(userId, 10)) {
           if(newMessage.receiver_id){
             responseMessage(newMessage);
-            setMessages((prevMessages) => [...prevMessages, newMessage]);
+            setMessages((prevMessages) => {
+              const messageIndex = prevMessages.findIndex((msg) => msg.message_id === newMessage.message_id);
+              if (messageIndex !== -1) {
+                  const updatedMessages = [...prevMessages];
+                  updatedMessages[messageIndex] = { ...updatedMessages[messageIndex], ...newMessage };
+                  return updatedMessages;
+              } else {
+                  return [...prevMessages, newMessage];
+              }
+          });
           }
         } else {
           console.log("Message doesn't belong to the current user.");
@@ -218,17 +244,12 @@ useEffect(() => {
     };
 
     socket.on("senderMessage", senderMessage);
-    socket.on("typing", handleTyping);
-    socket.on("stopTyping", handleStopTyping);
     socket.on("receiveMessage", handleReceiveMessage);
     socket.on("activeUserList", handleActiveUserList);
 
     return () => {
       socket.off("senderMessage", senderMessage);
       socket.off("receiveMessage", handleReceiveMessage);
-      socket.off("typing");
-      socket.off("stopTyping");
-      socket.off("userStopTyping");
       socket.off("activeUserId");
       socket.off("activeUserList");
     };
@@ -241,7 +262,8 @@ useEffect(() => {
 //response message
 const responseMessage= (newMessage) => {
   if(socket){
-    socket.emit('respone', newMessage);
+    console.log(newMessage);
+    socket.emit('response', newMessage);
   }else{
     console.log("no data response")
   }
@@ -252,9 +274,7 @@ useEffect(() => {
   if (socket) {
     socket.on('response', (data) => {
       if(socket){
-        console.log('Response from server:', data);
         if (data.status === 'check') {
-            console.log('Message was successfully updated:', data.message);
         } else if (data.status === 'error') {
             console.log('Error or no changes:', data.message);
         }
@@ -273,7 +293,7 @@ useEffect(() => {
   handleShowGroups(userId);
   handleShowLength(userId);
   handelGroupMessageLnegth(userId);
-  fetchLastMessage(userId);
+  // fetchLastMessage(userId);
   handleLastGroupMessage(userId);
 }, [userId]);
 
@@ -590,7 +610,6 @@ const timeTracker = (timestamp) => {
 //fetch the last message
 const fetchLastMessage = async (data) => {
   try {
-    console.log(data);
     const userIds = data.map(user => user.user_id);
     const response = await axios.get(`${config.apiUrl}/api/getLastMessagesByUser`, {
       params: {
@@ -638,140 +657,120 @@ const handleLastGroupMessage = async (userId) => {
               />
             </div>
            {/* Display Users and Groups in One ListGroup */}
-            <div>
-                <ListGroup
-                  variant="flush"
-                  className="overflow-auto"
-                  style={{ height: "600px", backgroundColor: "#f9f9f9", textTransform: "capitalize" }}
-                >
-                    {[
-                      ...userlist.map((user) => ({ type: 'user', ...user })),
-                      ...groups.map((group) => ({ type: 'group', ...group }))
-                    ].length > 0 ? (
-                      [
-                        ...userlist.map((user) => ({ type: 'user', ...user })),
-                        ...groups.map((group) => ({ type: 'group', ...group }))
-                      ].map((item) => (
-                        <ListGroup.Item
-                          key={item.type === 'user' ? item.user_id : item.group_id}
-                          className={`cursor-pointer ${
-                            (item.type === 'user' && item.user_id === selectedUsers) ||
-                            (item.type === 'group' && item.group_id === selectedGroup)
-                              ? 'bg-primary text-white'
-                              : ''
-                          }`}
-                          onClick={() => item.type === 'user' ? handleUserClick(item) : handleGroupClick(item)}
-                          style={{
-                            backgroundColor: "#ffffff",
-                            borderBottom: "1px solid #ddd",
-                            position: "relative",
-                          }}
-                          type="button"
-                        >
-                     
-                                                       
-                        {/* Display the user name or group name */}
-                        {
-                          <div className="d-flex ">
-                            <div className="d-flex align-items-center">
-                                {/* Left Section - Avatar for profile picture */}
-                                <Avatar 
-                                  label="" 
-                                  size="large" 
-                                  style={{ backgroundColor: '#8BA5B9FF', color: '#ffffff' }} 
-                                  shape="circle" 
+           <div>
+      <ListGroup
+        variant="flush"
+        className="overflow-auto"
+        style={{ height: "600px", backgroundColor: "#f9f9f9", textTransform: "capitalize" }}
+      >
+        {[
+          ...userlist.map((user) => ({ type: 'user', ...user })),
+          ...groups.map((group) => ({ type: 'group', ...group }))
+        ].length > 0 ? (
+          [
+            ...userlist.map((user) => ({ type: 'user', ...user })),
+            ...groups.map((group) => ({ type: 'group', ...group }))
+          ].map((item) => {
+            // Ensure unique key by combining 'type' and ID
+            const key = item.type === 'user' ? `user-${item.user_id}` : `group-${item.group_id}`;
+            return (
+              <ListGroup.Item
+                key={key}  // Unique key based on type and ID
+                className={`cursor-pointer ${
+                  (item.type === 'user' && item.user_id === selectedUsers) ||
+                  (item.type === 'group' && item.group_id === selectedGroup)
+                    ? 'bg-primary text-white'
+                    : ''
+                }`}
+                onClick={() => item.type === 'user' ? handleUserClick(item) : handleGroupClick(item)}
+                style={{
+                  backgroundColor: "#ffffff",
+                  borderBottom: "1px solid #ddd",
+                  position: "relative",
+                }}
+                type="button"
+              >
+                <div className="d-flex">
+                  <div className="d-flex align-items-center">
+                    {/* Left Section - Avatar for profile picture */}
+                    <Avatar
+                      label=""
+                      size="large"
+                      style={{ backgroundColor: '#8BA5B9FF', color: '#ffffff' }}
+                      shape="circle"
+                    />
+                    <div className="d-flex flex-column ms-2">
+                      {/* Display Username or Group Name */}
+                      <span className="fw-bold">
+                        {item.type === 'user' ? item.username : item.group_name}
+                      </span>
+
+                      {/* Last message text and status */}
+                      <div className="d-flex align-items-center mt-1">
+                        {/* Last message for one-to-one */}
+                        {item.type === 'user' && Array.isArray(lastMessages) && lastMessages.length > 0 && (
+                          lastMessages
+                            .filter(message => message.sender_id === item.user_id || message.receiver_id === item.user_id)
+                            .map((message, index) => (
+                              <p key={index}>{message.content}</p>
+                            ))
+                        )}
+
+                        {/* Last message for group */}
+                        {item.type === 'group' && Array.isArray(lastGroupMessage) && lastGroupMessage.length > 0 && (
+                          lastGroupMessage
+                            .filter(message => message.groupId === item.group_id)
+                            .map((message, index) => (
+                              <p key={index}>{message.content}</p>
+                            ))
+                        )}
+
+                        <p className="mb-0 text-end" style={{ marginLeft: '10px' }}>
+                          {/* Conditional rendering of message count */}
+                          {item.type === 'user' && Array.isArray(storeMessage) && storeMessage.some(message => {
+                            const messageKey = Object.keys(message)[0];
+                            return parseInt(messageKey, 10) === item.user_id && parseInt(messageKey, 10) !== checkId;
+                          }) && (
+                            <Badge
+                              value={storeMessage.find(message => Object.keys(message)[0] === String(item.user_id))?.[item.user_id] || 0}
+                              severity="success"
+                              style={{ fontSize: "12px" }}
+                            />
+                          )}
+
+                          {item.type === 'group' && (
+                            <div>
+                              {item.group_id !== currentGroupId && item.sender_id !== userId ? (
+                                <Badge
+                                  value={groupMessageStore.find(group => group.group_id === item.group_id)?.unread || null}
+                                  severity="success"
+                                  style={{ fontSize: "12px" }}
                                 />
-                                <div className="d-flex flex-column ms-2">
-                                  {/* Display Username or Group Name */}
-                                  <span className="fw-bold">
-                                    {item.type === 'user' ? item.username : item.group_name}
-                                  </span>
+                              ) : null}
+                            </div>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
 
-
-                                  {/* Last message text and status */}
-                                      <div className="d-flex align-items-center mt-1">
-                                         {/* Last message one to one */}
-                                        <div className="d-flex align-items-center">
-                                          {
-                                            item.type === 'user' &&
-                                            Array.isArray(lastMessages) &&
-                                            lastMessages.length > 0 && (
-                                              lastMessages
-                                                .filter(message => message.sender_id === item.user_id || message.receiver_id === item.user_id) 
-                                                .map((message, index) => (
-                                                  <p key={index}>{message.content}</p>
-                                                ))
-                                            )
-                                          }
-                                        </div>
-                                        {/* Last message group */}
-                                          <div className="d-flex align-items-center">
-                                          {
-                                            item.type === 'group' &&
-                                            Array.isArray(lastGroupMessage) &&
-                                            lastGroupMessage.length > 0 && (
-                                              lastGroupMessage
-                                                .filter(message => message.groupId === item.group_id) 
-                                                .map((message, index) => (
-                                                  <p key={index}>{message.content}</p>
-                                                ))
-                                            )
-                                          }
-                                          </div>
-                                        <p className="mb-0 text-end" style={{ marginLeft: '10px' }}>
-                                          {/* Conditional rendering of message count */}                            
-                                          {
-                                            item.type === 'user' && Array.isArray(storeMessage) && storeMessage.some(message => {
-                                              const messageKey = Object.keys(message)[0];
-                                              return parseInt(messageKey, 10) === item.user_id && parseInt(messageKey, 10) !== checkId;
-                                            }) && (
-                                              <Badge value={
-                                                storeMessage.find(message => Object.keys(message)[0] === String(item.user_id))?.[item.user_id] || 0
-                                              } severity="success" style={{ fontSize: "12px" }} />
-                                            )
-                                          }
-                                          {
-                                            item.type === 'group' && (
-                                              <div>
-                                                {item.group_id !== currentGroupId && item.sender_id !== userId ? (
-                                                  <Badge 
-                                                    value={
-                                                      groupMessageStore.find(group => group.group_id === item.group_id)?.unread || null
-                                                    } 
-                                                    severity="success" 
-                                                    style={{ fontSize: "12px"}} 
-                                                  />
-                                                ) : null}
-                                              </div>
-                                            )
-                                          }
-                                        </p> 
-
-                                      </div>
-                               
-                               
-                                </div>
-                                </div>
-                                <div>
-                                  {item.type === 'user' && activeUsers.some(
-                                    (activeUser) => String(activeUser.userId) === String(item.user_id)
-                                  ) && (
-                                    <span className="badge bg-success position-absolute top-0 end-0 m-2">
-                                      Active
-                                    </span>
-                                  )}
-                                </div>
-                                <div> 
-                                </div>
-                          </div>
-                        }
-                      </ListGroup.Item>
-                    ))
-                  ) : (
-                    <ListGroup.Item>No users or groups found</ListGroup.Item>
+                  {/* Active User Badge */}
+                  {item.type === 'user' && activeUsers.some(
+                    (activeUser) => String(activeUser.userId) === String(item.user_id)
+                  ) && (
+                    <span className="badge bg-success position-absolute top-0 end-0 m-2">
+                      Active
+                    </span>
                   )}
-                </ListGroup>
-            </div>
+                </div>
+              </ListGroup.Item>
+            );
+          })
+        ) : (
+          <ListGroup.Item>No users or groups found</ListGroup.Item>
+        )}
+      </ListGroup>
+    </div>
         </Col>
         <Col
           md={8}

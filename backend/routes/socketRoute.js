@@ -95,6 +95,8 @@ function websocketRoute(server) {
                     status: message.status,
                     files: filePaths || [], 
                 };
+
+                console.log("++++", messageData)
                 if (clients[message.sender_id]) {
                     clients[message.sender_id].emit('senderMessage', messageData);
                 }
@@ -102,33 +104,40 @@ function websocketRoute(server) {
                 if (clients[message.receiver_id]) {
                     clients[message.receiver_id].emit('receiveMessage', messageData);
                 }
+
+
             }
             
-            //messagen recived response by reicever
-            socket.on('respone', async (msg) => {
+
+            socket.on('response', async (msg) => {
                 try {
-                    const [updatedRows] = await Message.update(
-                        { status: 'check' }, 
-                        { where: { message_id: msg.message_id } }  
-                    );
-                    if (updatedRows > 0) {
-                        socket.emit('responseback', {
-                            message_id: msg.message_id,
-                            status: 'check',  
-                            message: 'Message successfully updated'
-                        });
-                    } else {
-                        return null;
-                    }
+                  const message = await Message.findOne({ where: { message_id: msg.message_id } });
+              
+                  if (message.status === 'check') {
+                    console.log('Message already checked, skipping...');
+                    return;  // Prevent re-broadcasting the same message
+                  }
+              
+                  // Update message status to "checked"
+                  await Message.update(
+                    { status: 'check' },
+                    { where: { message_id: msg.message_id } }
+                  );
+              
+                  // Find the next message (if any)
+                  const nextMessage = await Message.findOne({ where: { message_id: msg.message_id } });
+                  if (nextMessage) {
+                    broadcastOneToOneMessage(nextMessage, []);  // Only send the next message if valid
+                  }
+
+                // responseBack();
                 } catch (error) {
-                    console.error('Error updating message:', error);
-                    socket.emit('responseback', {
-                        message_id: msg.message_id,
-                        status: 'error',
-                        message: 'Error updating the message'
-                    });
+                  console.error('Error processing response message:', error);
                 }
-            });
+              });
+              
+            
+
             
             
 
@@ -295,26 +304,49 @@ function websocketRoute(server) {
             });
 
             socket.on('joinCheckId', (checkId) => {
+                console.log
                 socket.join(checkId);
             });
             
-            socket.on('userTyping', (userId, userName, checkId) => {
-                if (!typingUsers[checkId]) {
-                    typingUsers[checkId] = [];
+
+        // Listen for 'clearMessages' event from the client
+        socket.on('clearMessages', async (clearId) => {
+            try {
+                const messages = await Message.findAll({
+                    where: {
+                        sender_id: clearId,
+                        status: 'uncheck',  
+                    }
+                });
+
+                if (messages.length === 0) {
+                    socket.emit('clearMessagesResponse', []);
+                    return;
                 }
-                const userExists = typingUsers[checkId].some(user => user.userId === userId);
-                if (!userExists) {
-                    typingUsers[checkId].push({ userId, userName });
+
+                // Update messages to status 'check'
+                const [updatedCount] = await Message.update(
+                    { status: 'check' },
+                    {
+                        where: {
+                            sender_id: clearId,
+                            status: 'uncheck',
+                        }
+                    }
+                );
+
+                console.log("log the ", updatedCount);
+                if (updatedCount === 0) {
+                    console.log("log all the data++++")
+                    socket.emit('clearMessagesResponse', { message: 'No messages were updated' });
+                } else {
+                    socket.emit('clearMessagesResponse', { message: 'Messages cleared successfully', updatedCount });
                 }
-                io.to(checkId).emit('userTyping', checkId, typingUsers[checkId]);
-            });
-            
-            socket.on('stopTyping', (userId, checkId) => {
-                if (typingUsers[checkId]) {
-                    typingUsers[checkId] = typingUsers[checkId].filter(user => user.userId !== userId);
-                    socket.to(checkId).emit('stopTyping', checkId, typingUsers[checkId]);
-                }
-            });
+            } catch (error) {
+                console.error("Error fetching messages:", error);
+                socket.emit('clearMessagesResponse', { error: "Failed to clear messages" });
+            }
+        });
 
         
 
