@@ -112,7 +112,11 @@ const handleUserClick = (user) => {
 const clearStoreMessage = async (clearId) => {
   try {
     if(socket){
-      socket.emit('clearMessages', clearId);
+      const payload = {
+        userId,
+        clearId
+      };
+      socket.emit('clearMessages', payload);
       socket.on('clearMessagesResponse', (response) => {
           if (response.error) {
               console.error("Error clearing messages:", response.error);
@@ -181,31 +185,46 @@ useEffect(() => {
 
 useEffect(() => {
   if (socket) {     
-      const senderMessage = (newMessage) => {
-          setMessages((prevMessages) => {
-              if (Array.isArray(newMessage)) {
-                  const updatedMessages = [...prevMessages];
-                  newMessage.forEach((msg) => {
-                      const messageIndex = updatedMessages.findIndex((prevMsg) => prevMsg.message_id === msg.message_id);
-                      if (messageIndex !== -1) {
-                          updatedMessages[messageIndex] = { ...updatedMessages[messageIndex], ...msg };
-                      } else {
-                          updatedMessages.push(msg);
-                      }
-                  });
-                  return updatedMessages;
-              } else {
-                  const messageIndex = prevMessages.findIndex((msg) => msg.message_id === newMessage.message_id);
-                  if (messageIndex !== -1) {
-                      const updatedMessages = [...prevMessages];
-                      updatedMessages[messageIndex] = { ...updatedMessages[messageIndex], ...newMessage };
-                      return updatedMessages;
-                  } else {
-                      return [...prevMessages, newMessage];
-                  }
-              }
+    const senderMessage = (newMessage) => {
+      setMessages((prevMessages) => {
+        // If newMessage is an array, filter messages based on receiver_id and checkId
+        if (Array.isArray(newMessage)) {
+          
+          // If newMessage array is empty, return previous messages
+          if (newMessage.length === 0) {
+            return prevMessages;
+          }
+    
+          const filteredMessages = newMessage.filter(msg => msg.receiver_id === parseInt(checkId, 10));
+          const updatedMessages = [...prevMessages];
+    
+          filteredMessages.forEach((msg) => {
+            const messageIndex = updatedMessages.findIndex((prevMsg) => prevMsg.message_id === msg.message_id);
+            if (messageIndex !== -1) {
+              // If message exists, update it
+              updatedMessages[messageIndex] = { ...updatedMessages[messageIndex], ...msg };
+            } else {
+              // If message doesn't exist, add it
+              updatedMessages.push(msg);
+            }
           });
-      };
+    
+          return updatedMessages;
+        } 
+        // If newMessage is a single object, update or add it to the state
+        else {
+          const messageIndex = prevMessages.findIndex((msg) => msg.message_id === newMessage.message_id);
+          if (messageIndex !== -1) {
+            const updatedMessages = [...prevMessages];
+            updatedMessages[messageIndex] = { ...updatedMessages[messageIndex], ...newMessage };
+            return updatedMessages;
+          } else {
+            return [...prevMessages, newMessage];
+          }
+        }
+      });
+    };
+    
   
   
   

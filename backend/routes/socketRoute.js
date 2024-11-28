@@ -310,15 +310,16 @@ function websocketRoute(server) {
             
 
         // Listen for 'clearMessages' event from the client
-        socket.on('clearMessages', async (clearId) => {
+        socket.on('clearMessages', async (payload) => {
+            const { userId, clearId } = payload;
             try {
-                // Find all messages that are 'uncheck' for the given sender_id
                 const messages = await Message.findAll({
                     where: {
-                        sender_id: clearId,
-                        status: 'uncheck',
+                      sender_id: clearId,  
+                      receiver_id: userId,  
+                      status: 'uncheck'    
                     }
-                });
+                  });
         
                 // If no messages are found, send an empty response
                 if (messages.length === 0) {
@@ -333,12 +334,13 @@ function websocketRoute(server) {
                 const [updatedCount] = await Message.update(
                     { status: 'check' },
                     {
-                        where: {
-                            sender_id: clearId,
-                            status: 'uncheck',
-                        }
+                      where: {
+                        sender_id: clearId,
+                        receiver_id: userId,
+                        status: 'uncheck'
+                      }
                     }
-                );
+                  );
         
                 // Find the updated messages to log their new status
                 const updatedMessages = await Message.findAll({
@@ -351,7 +353,6 @@ function websocketRoute(server) {
                 console.log('Updated messages:', updatedMessages);
         
                 if (clients[clearId]) {
-ender
                     clients[clearId].emit('senderMessage', updatedMessages);
                 }
         
