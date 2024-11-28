@@ -351,8 +351,6 @@ router.get('/getMessageLength', async (req, res) => {
  });
  
 
-
-
 //get api through which the group message length can be fetched
 router.get('/getGroupMessageLength', async (req, res) => {
     try {

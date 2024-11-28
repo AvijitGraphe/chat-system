@@ -259,10 +259,7 @@ function websocketRoute(server) {
                 }
             });
 
-            
-
-
-            
+                  
             // Join a group
             socket.on('joinGroup', (groupId) => {
                 if (!groups[groupId]) {

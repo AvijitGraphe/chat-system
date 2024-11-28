@@ -708,16 +708,27 @@ const handleLastGroupMessage = async (userId) => {
         >
             {/* create group button */}
             <div className="d-flex align-items-center justify-content-between">
-              <h3 className="mb-3 p-2 text-primary text-capitalize-custom" style={{textTransform: "capitalize"}}>{userName}</h3>
-              <Button
-                type="button"
-                label="Create Group"
-                icon="pi pi-users"
-                outlined
-                className="p-button-secondary"
-                onClick={handleGroupCreate}
-              />
-            </div>
+            <div className="d-flex align-items-center">
+            <h3 className="mb-3 p-2 text-primary text-capitalize-custom">
+              {userName}
+            </h3>
+            {activeUsers.some(
+              (activeUser) => activeUser.userId === userId
+            ) && (
+              <span className="badge bg-success ms-2">
+                Active
+              </span>
+            )}
+          </div>
+            <Button
+              type="button"
+              label="Create Group"
+              icon="pi pi-users"
+              outlined
+              className="p-button-secondary"
+              onClick={handleGroupCreate}
+            />
+          </div>
            {/* Display Users and Groups in One ListGroup */}
            <div>
           <ListGroup
@@ -764,7 +775,7 @@ const handleLastGroupMessage = async (userId) => {
                         <div className="d-flex flex-column ms-2">
                           {/* Display Username or Group Name */}
                           <span className="fw-bold">
-                            {item.type === 'user' ? item.username : item.group_name}
+                            {item.type === 'user' ? item.username : `${item.group_name}(Group)`}
                           </span>
 
                           {/* Last message text and status */}
