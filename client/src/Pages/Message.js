@@ -187,17 +187,14 @@ useEffect(() => {
   if (socket) {     
     const senderMessage = (newMessage) => {
       setMessages((prevMessages) => {
-        // If newMessage is an array, filter messages based on receiver_id and checkId
+        // If newMessage is an array,
         if (Array.isArray(newMessage)) {
-          
-          // If newMessage array is empty, return previous messages
+          // If newMessage array is empty,
           if (newMessage.length === 0) {
             return prevMessages;
           }
-    
           const filteredMessages = newMessage.filter(msg => msg.receiver_id === parseInt(checkId, 10));
           const updatedMessages = [...prevMessages];
-    
           filteredMessages.forEach((msg) => {
             const messageIndex = updatedMessages.findIndex((prevMsg) => prevMsg.message_id === msg.message_id);
             if (messageIndex !== -1) {
@@ -211,7 +208,7 @@ useEffect(() => {
     
           return updatedMessages;
         } 
-        // If newMessage is a single object, update or add it to the state
+        // If newMessage is a single
         else {
           const messageIndex = prevMessages.findIndex((msg) => msg.message_id === newMessage.message_id);
           if (messageIndex !== -1) {
@@ -275,6 +272,7 @@ useEffect(() => {
       setTypingUsers([]);
     };
     const handleActiveUserList = (activeUsers) => {
+      console.log("activeUsers", activeUsers);
       setActiveUsers(activeUsers);
     };
 
@@ -833,6 +831,9 @@ const handleLastGroupMessage = async (userId) => {
                           Active
                         </span>
                       )}
+
+
+
                     </div>
                   </ListGroup.Item>
                 );
@@ -866,27 +867,39 @@ const handleLastGroupMessage = async (userId) => {
                       style={{ backgroundColor: '#AAB6C0FF', color: '#ffffff' }} 
                       shape="circle" 
                     />
-                  <div>
-                    <strong className="capitalize" style={{textTransform:"capitalize"}}>{showGroupName}</strong>
-                    <ul
-                      className="d-flex flex-row flex-wrap gap-2"
-                      style={{ listStyleType: "none", paddingLeft: 0 }}
-                    >
-                      {selectedGroup.length > 0 ? (
-                        selectedGroup.map((user) => (
-                          <li key={user.user_id}>
-                            {user.user_id === parseInt(userId, 10) ? (
-                              <span>You,</span>
+                    <div>
+                      <strong className="capitalize" style={{textTransform:"capitalize"}}>{showGroupName}</strong>
+                      <ul
+                        className="d-flex flex-row flex-wrap gap-2"
+                        style={{ listStyleType: "none", paddingLeft: 0 }}
+                      >
+                            {selectedGroup.length > 0 ? (
+                              selectedGroup.map((user) => (
+                                <li key={user.user_id}>
+                                  {user.user_id === parseInt(userId, 10) ? (
+                                    <span>
+                                      You
+                                      {activeUsers.some((activeUser) => (String(activeUser.userId) === String(user.user_id))) && (
+
+                                        <span style={{ color: 'green', marginLeft: '5px' }}>●</span> 
+                                      )},
+                                    </span>
+                                  ) : (
+                                    <span>
+                                      {user.username}
+                              
+                                      {activeUsers.some((activeUser) => String(activeUser.userId) === String(user.user_id)) && (
+                                        <span style={{ color: 'green', marginLeft: '5px' }}>●</span>
+                                      )},
+                                    </span>
+                                  )}
+                                </li>
+                              ))
                             ) : (
-                              <span>{user.username},</span>
+                              <p>No members found.</p>
                             )}
-                          </li>
-                        ))
-                      ) : (
-                        <p>No members found.</p>
-                      )}
-                    </ul>
-                  </div>
+                      </ul>
+                    </div>
                 </div>
               )}
 

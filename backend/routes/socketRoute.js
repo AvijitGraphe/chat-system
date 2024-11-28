@@ -133,11 +133,6 @@ function websocketRoute(server) {
               
             
 
-            
-            
-
-
-
             socket.on('sendGroupMessage', async (msg) => {
                 try {
                     if (!msg.senderId || !msg.content || !msg.groupId) {
@@ -206,7 +201,7 @@ function websocketRoute(server) {
                     }
                 });
 
-                
+
                 activeUsers.forEach(userId => {
                     if (!groupUsers.includes(userId) && clients[userId]) {
                         clients[userId].emit('receiveGroupNotification', {
@@ -355,6 +350,9 @@ function websocketRoute(server) {
             io.emit('activeUserList', activeUsers);
             logId = activeUsers;
         }
+
+
+
         } catch (err) {
             console.error('Error verifying token: ', err);
             socket.disconnect();
