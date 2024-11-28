@@ -106,7 +106,7 @@ function websocketRoute(server) {
 
             }
             
-
+            //respone the data
             socket.on('response', async (msg) => {
                 try {
                   const message = await Message.findOne({ where: { message_id: msg.message_id } });
@@ -132,7 +132,7 @@ function websocketRoute(server) {
               });
               
             
-
+            //rspone the group message
             socket.on('sendGroupMessage', async (msg) => {
                 try {
                     if (!msg.senderId || !msg.content || !msg.groupId) {
@@ -223,7 +223,6 @@ function websocketRoute(server) {
             }
 
 
-      
             // For group message response
             socket.on("groupMessagerespone", async (msg) => {
                 try {
