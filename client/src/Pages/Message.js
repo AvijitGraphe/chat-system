@@ -1118,7 +1118,7 @@ const handleLastGroupMessage = async (userId) => {
                       <div className="replying-to">
                         <div className="d-flex justify-content-between align-items-center">
                             <strong>Replying to:</strong> 
-                            <i className="pi pi-times  p-2" onClick={() => setReplyingTo(null)}></i>
+                            <i className="pi pi-times p-2" onClick={() => setReplyingTo(null)}></i>
                         </div>
                         <p className="p-0 m-0">{replyingTo.sender_name}</p>
                         <p className="px-4">{replyingTo.content}</p>
