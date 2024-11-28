@@ -95,8 +95,6 @@ function websocketRoute(server) {
                     status: message.status,
                     files: filePaths || [], 
                 };
-
-                console.log("++++", messageData)
                 if (clients[message.sender_id]) {
                     clients[message.sender_id].emit('senderMessage', messageData);
                 }
@@ -112,12 +110,9 @@ function websocketRoute(server) {
             socket.on('response', async (msg) => {
                 try {
                   const message = await Message.findOne({ where: { message_id: msg.message_id } });
-              
                   if (message.status === 'check') {
-                    console.log('Message already checked, skipping...');
-                    return;  // Prevent re-broadcasting the same message
+                    return; 
                   }
-              
                   // Update message status to "checked"
                   await Message.update(
                     { status: 'check' },
@@ -185,12 +180,8 @@ function websocketRoute(server) {
                 }
             });
             
-
-
-
             // Function to broadcast the message to group members;
             function broadcastGroupMessage(message, files) {
-
                 const messageData = {
                     message_id: message.message_id,
                     sender_id: message.sender_id,
@@ -200,23 +191,22 @@ function websocketRoute(server) {
                     sender_name: message.sender_name,
                     rebackName: message.rebackName,
                     timestamp: message.created_at,
-
                     files: files || [],
-                     
                     created_at: message.created_at,
                 };
                 const groupUsers = groups[message.group_id] || [];
                 const activeUsers = Object.keys(clients);
-
-                // Brodcast message to group members
+                // Broadcast message to group members
                 groupUsers.forEach(userId => {
                     if (clients[userId]) {
                         clients[userId].emit('receiveGroupMessage', messageData);
+
                     } else {
                         console.log(`No client found for user ${userId}`);
                     }
                 });
 
+                
                 activeUsers.forEach(userId => {
                     if (!groupUsers.includes(userId) && clients[userId]) {
                         clients[userId].emit('receiveGroupNotification', {
@@ -229,6 +219,8 @@ function websocketRoute(server) {
 
             }
 
+
+            
             // Join a group
             socket.on('joinGroup', (groupId) => {
                 if (!groups[groupId]) {
@@ -303,8 +295,7 @@ function websocketRoute(server) {
               }
             });
 
-            socket.on('joinCheckId', (checkId) => {
-                console.log
+            socket.on('joinCheckId', (checkId) => {           
                 socket.join(checkId);
             });
             
@@ -320,17 +311,12 @@ function websocketRoute(server) {
                       status: 'uncheck'    
                     }
                   });
-        
-                // If no messages are found, send an empty response
                 if (messages.length === 0) {
                     socket.emit('clearMessagesResponse', []);
                     return;
                 }
-        
-                // Extract message_ids of the messages to be updated
                 const messageIds = messages.map(msg => msg.message_id);
-        
-                // Update the messages with 'uncheck' status to 'check'
+
                 const [updatedCount] = await Message.update(
                     { status: 'check' },
                     {
@@ -348,14 +334,9 @@ function websocketRoute(server) {
                         message_id: messageIds,
                     }
                 });
-        
-                // Log the updated messages
-                console.log('Updated messages:', updatedMessages);
-        
                 if (clients[clearId]) {
                     clients[clearId].emit('senderMessage', updatedMessages);
                 }
-        
                 // Optionally send the updated messages to the original socket that requested the clear
                 socket.emit('clearMessagesResponse', updatedMessages);
         
@@ -365,11 +346,7 @@ function websocketRoute(server) {
             }
         });
         
-        
-
-
-        
-
+    
         // Function to broadcast active user list
         function broadcastActiveUsers() {
             const activeUsers = Object.keys(clients).map(userId => {

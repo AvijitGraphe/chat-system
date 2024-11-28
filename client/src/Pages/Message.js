@@ -101,6 +101,7 @@ const handleUserClick = (user) => {
   setGetUserIdActive(user.user_id);
   handleCheckId(user.user_id);
   clearStoreMessage(user.user_id);
+
   handleLeaveGroup(prevGroupId);
 
 };
@@ -121,7 +122,6 @@ const clearStoreMessage = async (clearId) => {
           if (response.error) {
               console.error("Error clearing messages:", response.error);
           } else {
-            console.log(response);
               fetchMessages(userId, clearId);
               handleShowLength(userId); 
           }
@@ -297,7 +297,6 @@ useEffect(() => {
 //response message
 const responseMessage= (newMessage) => {
   if(socket){
-    console.log(newMessage);
     socket.emit('response', newMessage);
   }else{
     console.log("no data response")
@@ -311,7 +310,7 @@ useEffect(() => {
       if(socket){
         if (data.status === 'check') {
         } else if (data.status === 'error') {
-            console.log('Error or no changes:', data.message);
+          console.log('Error or no changes:', data.message);
         }
       }
     });
@@ -468,7 +467,10 @@ const handleLeaveGroup = (groupId) => {
   if (socket) {
     socket.emit("leaveGroup", groupId);
   }
+  // Update local state after the user leaves
+  setPrevGroupId(null);  
 };
+
 
 //For checking the user id
 const handleCheckId = (checkId) => {
@@ -485,8 +487,8 @@ useEffect(() => {
   if (socket) {
     const handleReceiveGroupMessage = (newMessage) => {
       if (newMessage.group_id === currentGroupId) {
+        handelGroupMessageRead( userId, newMessage.group_id,); 
         setMessages((prevMessages) => [...prevMessages, newMessage]);
-        handelGroupMessageRead(newMessage.group_id, userId); 
         handleLastGroupMessage(userId);
       } else {
         console.log(`Message  (group_id: ${newMessage.group_id}):`, newMessage);
@@ -523,16 +525,20 @@ setGroupMessageStore(response.data);
   
 //get unread message and read message
 const handelGroupMessageRead = async (userId, groupId) => {
+  const groupIdAsNumber = isNaN(Number(groupId)) ? groupId : Number(groupId);
   try {
-        await axios.post(`${config.apiUrl}/api/getGroupMessageRead`, {
-          userId,
-          groupId
-      });
-      handelGroupMessageLnegth(userId)
+    await axios.post(`${config.apiUrl}/api/getGroupMessageRead`, {
+      userId,
+      groupId: groupIdAsNumber  
+    });
+    handelGroupMessageLnegth(userId);
   } catch (error) {
-      console.error('Error marking messages as read:', error);
+    console.error('Error marking messages as read:', error);
   }
+
 }
+
+
 
 //get group messge get all the messages in the group
 const handleGetGroupMessages = async (groupId) => {
@@ -693,547 +699,577 @@ const handleLastGroupMessage = async (userId) => {
             </div>
            {/* Display Users and Groups in One ListGroup */}
            <div>
-      <ListGroup
-        variant="flush"
-        className="overflow-auto"
-        style={{ height: "600px", backgroundColor: "#f9f9f9", textTransform: "capitalize" }}
-      >
-        {[
-          ...userlist.map((user) => ({ type: 'user', ...user })),
-          ...groups.map((group) => ({ type: 'group', ...group }))
-        ].length > 0 ? (
-          [
-            ...userlist.map((user) => ({ type: 'user', ...user })),
-            ...groups.map((group) => ({ type: 'group', ...group }))
-          ].map((item) => {
-            // Ensure unique key by combining 'type' and ID
-            const key = item.type === 'user' ? `user-${item.user_id}` : `group-${item.group_id}`;
-            return (
-              <ListGroup.Item
-                key={key}  // Unique key based on type and ID
-                className={`cursor-pointer ${
-                  (item.type === 'user' && item.user_id === selectedUsers) ||
-                  (item.type === 'group' && item.group_id === selectedGroup)
-                    ? 'bg-primary text-white'
-                    : ''
-                }`}
-                onClick={() => item.type === 'user' ? handleUserClick(item) : handleGroupClick(item)}
-                style={{
-                  backgroundColor: "#ffffff",
-                  borderBottom: "1px solid #ddd",
-                  position: "relative",
-                }}
-                type="button"
-              >
-                <div className="d-flex">
-                  <div className="d-flex align-items-center">
-                    {/* Left Section - Avatar for profile picture */}
-                    <Avatar
-                      label=""
-                      size="large"
-                      style={{ backgroundColor: '#8BA5B9FF', color: '#ffffff' }}
-                      shape="circle"
-                    />
-                    <div className="d-flex flex-column ms-2">
-                      {/* Display Username or Group Name */}
-                      <span className="fw-bold">
-                        {item.type === 'user' ? item.username : item.group_name}
-                      </span>
+          <ListGroup
+            variant="flush"
+            className="overflow-auto"
+            style={{ height: "600px", backgroundColor: "#f9f9f9", textTransform: "capitalize" }}
+          >
+            {[
+              ...userlist.map((user) => ({ type: 'user', ...user })),
+              ...groups.map((group) => ({ type: 'group', ...group }))
+            ].length > 0 ? (
+              [
+                ...userlist.map((user) => ({ type: 'user', ...user })),
+                ...groups.map((group) => ({ type: 'group', ...group }))
+              ].map((item) => {
+                // Ensure unique key by combining 'type' and ID
+                const key = item.type === 'user' ? `user-${item.user_id}` : `group-${item.group_id}`;
+                return (
+                  <ListGroup.Item
+                    key={key}  // Unique key based on type and ID
+                    className={`cursor-pointer ${
+                      (item.type === 'user' && item.user_id === selectedUsers) ||
+                      (item.type === 'group' && item.group_id === selectedGroup)
+                        ? 'bg-primary text-white'
+                        : ''
+                    }`}
+                    onClick={() => item.type === 'user' ? handleUserClick(item) : handleGroupClick(item)}
+                    style={{
+                      backgroundColor: "#ffffff",
+                      borderBottom: "1px solid #ddd",
+                      position: "relative",
+                    }}
+                    type="button"
+                  >
+                    <div className="d-flex">
+                      <div className="d-flex align-items-center">
+                        {/* Left Section - Avatar for profile picture */}
+                        <Avatar
+                          label=""
+                          size="large"
+                          style={{ backgroundColor: '#8BA5B9FF', color: '#ffffff' }}
+                          shape="circle"
+                        />
+                        <div className="d-flex flex-column ms-2">
+                          {/* Display Username or Group Name */}
+                          <span className="fw-bold">
+                            {item.type === 'user' ? item.username : item.group_name}
+                          </span>
 
-                      {/* Last message text and status */}
-                      <div className="d-flex align-items-center mt-1">
-                        {/* Last message for one-to-one */}
-                        {item.type === 'user' && Array.isArray(lastMessages) && lastMessages.length > 0 && (
-                          lastMessages
-                            .filter(message => message.sender_id === item.user_id || message.receiver_id === item.user_id)
-                            .map((message, index) => (
-                              <p key={index}>{message.content}</p>
-                            ))
-                        )}
+                          {/* Last message text and status */}
+                          <div className="d-flex align-items-center mt-1">
+                            {/* Last message for one-to-one */}
+                            {item.type === 'user' && Array.isArray(lastMessages) && lastMessages.length > 0 && (
+                                lastMessages
+                                  .filter(message => message.sender_id === item.user_id || message.receiver_id === item.user_id)
+                                  .map((message, index) => {
+                                    const words = message.content.split(' ');  
+                                    const first5Words = words.slice(0, 5).join(' ');  // First 5 words
+                                    const displayText = words.length > 5 ? `${first5Words}...` : first5Words;  // Append "..." if more than 5 words
 
-                        {/* Last message for group */}
-                        {item.type === 'group' && Array.isArray(lastGroupMessage) && lastGroupMessage.length > 0 && (
-                          lastGroupMessage
-                            .filter(message => message.groupId === item.group_id)
-                            .map((message, index) => (
-                              <p key={index}>{message.content}</p>
-                            ))
-                        )}
+                                    // Assuming message.created_at is a valid date string
+                                    const formattedDate = timeTracker(new Date(message.created_at)); 
 
-                        <p className="mb-0 text-end" style={{ marginLeft: '10px' }}>
-                          {/* Conditional rendering of message count */}
-                          {item.type === 'user' && Array.isArray(storeMessage) && storeMessage.some(message => {
-                            const messageKey = Object.keys(message)[0];
-                            return parseInt(messageKey, 10) === item.user_id && parseInt(messageKey, 10) !== checkId;
-                          }) && (
-                            <Badge
-                              value={storeMessage.find(message => Object.keys(message)[0] === String(item.user_id))?.[item.user_id] || 0}
-                              severity="success"
-                              style={{ fontSize: "12px" }}
-                            />
-                          )}
+                                    return (
+                                      <div key={index} className="d-flex justify-content-between  gap-4">
+                                        <p>{displayText}</p>
+                                        <small>{formattedDate}</small>
+                                      </div>
+                                    );
+                                    
+                                  })
+                              )}
 
-                          {item.type === 'group' && (
-                            <div>
-                              {item.group_id !== currentGroupId && item.sender_id !== userId ? (
+                              {/* Last message for group */}
+                              {item.type === 'group' && Array.isArray(lastGroupMessage) && lastGroupMessage.length > 0 && (
+                                lastGroupMessage
+                                  .filter(message => message.groupId === item.group_id)
+                                  .map((message, index) => {
+                                    const words = message.content.split(' ');  
+                                    const first5Words = words.slice(0, 5).join(' ');  // First 5 words
+                                    const displayText = words.length > 5 ? `${first5Words}...` : first5Words;  
+
+                                    // Assuming message.created_at is a valid date string
+                                    const formattedDate = timeTracker(new Date(message.created_at)); 
+
+                                    return (
+                                      <div key={index} className="d-flex justify-content-between  gap-4">
+                                        <p>{displayText}</p>
+                                        <small>{formattedDate}</small>
+                                      </div>
+                                    );
+                                    
+                                    
+                                  })
+                              )}
+
+
+
+
+                            <p className="mb-0 text-end" style={{ marginLeft: '10px' }}>
+                              {/* Conditional rendering of message count */}
+                              {item.type === 'user' && Array.isArray(storeMessage) && storeMessage.some(message => {
+                                const messageKey = Object.keys(message)[0];
+                                return parseInt(messageKey, 10) === item.user_id && parseInt(messageKey, 10) !== checkId;
+                              }) && (
                                 <Badge
-                                  value={groupMessageStore.find(group => group.group_id === item.group_id)?.unread || null}
+                                  value={storeMessage.find(message => Object.keys(message)[0] === String(item.user_id))?.[item.user_id] || 0}
                                   severity="success"
                                   style={{ fontSize: "12px" }}
                                 />
-                              ) : null}
+                              )}
+
+                              {item.type === 'group' && (
+                                <div>
+                                  {item.group_id !== currentGroupId && item.sender_id !== userId ? (
+                                    <Badge
+                                      value={groupMessageStore.find(group => group.group_id === item.group_id)?.unread || null}
+                                      severity="success"
+                                      style={{ fontSize: "12px" }}
+                                    />
+                                  ) : null}
+                                </div>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Active User Badge */}
+                      {item.type === 'user' && activeUsers.some(
+                        (activeUser) => String(activeUser.userId) === String(item.user_id)
+                      ) && (
+                        <span className="badge bg-success position-absolute top-0 end-0 m-2">
+                          Active
+                        </span>
+                      )}
+                    </div>
+                  </ListGroup.Item>
+                );
+              })
+            ) : (
+              <ListGroup.Item>No users or groups found</ListGroup.Item>
+            )}
+          </ListGroup>
+        </div>
+            </Col>
+            <Col
+              md={8}
+              className="d-flex flex-column bg-white rounded shadow-sm p-3"
+            >
+              {receiverName && !getGroupId && (
+                <div className="mb-2 d-flex align-items-center">
+                  <Avatar 
+                        label="" 
+                        size="large" 
+                        style={{ backgroundColor: '#8BA5B9FF', color: '#ffffff' }} 
+                        shape="circle" 
+                      />
+                  <strong style={{textTransform:"capitalize"}}>{receiverName}</strong>
+                </div>
+              )}
+              {showGroupName && getGroupId && (
+                <div className="mb-2 d-flex align-items-center">
+                  <Avatar 
+                      label="" 
+                      size="large" 
+                      style={{ backgroundColor: '#AAB6C0FF', color: '#ffffff' }} 
+                      shape="circle" 
+                    />
+                  <div>
+                    <strong className="capitalize" style={{textTransform:"capitalize"}}>{showGroupName}</strong>
+                    <ul
+                      className="d-flex flex-row flex-wrap gap-2"
+                      style={{ listStyleType: "none", paddingLeft: 0 }}
+                    >
+                      {selectedGroup.length > 0 ? (
+                        selectedGroup.map((user) => (
+                          <li key={user.user_id}>
+                            {user.user_id === parseInt(userId, 10) ? (
+                              <span>You,</span>
+                            ) : (
+                              <span>{user.username},</span>
+                            )}
+                          </li>
+                        ))
+                      ) : (
+                        <p>No members found.</p>
+                      )}
+                    </ul>
+                  </div>
+                </div>
+              )}
+
+              {/* Typing indicator */}
+              {typingUsers.length > 0 && (
+                <div className="mb-2">
+                  <ul>
+                    {typingUsers.map((user, index) => (
+                      <li key={`${user}-${index}`} style={{ textTransform: "capitalize", color: "#0FE461FF" }}>
+                        {user} is typing...
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Message Display Section */}
+              <div
+                  className="flex-grow-1 overflow-auto border border-light rounded p-3 mb-2"
+                  style={{ height: "400px", backgroundColor: "#f1f1f1" }}
+                  ref={chatcontainerRef}
+                >
+                  {messages.length > 0 ? (
+                    messages.map((msg, index) => {
+                      const isSender = parseInt(msg.sender_id, 10) === parseInt(userId, 10); 
+                      
+                      // Format the date
+                      const formattedDate = formatDate(msg.timestamp);
+
+                      const showDate = index === 0 || formattedDate !== formatDate(messages[index - 1].timestamp);
+                      
+                      return (
+                        <div
+                          key={msg.message_id}
+                          className={`d-flex mb-2 ${isSender ? "justify-content-end" : "justify-content-start"}`}
+                        >
+                          {showDate && (
+                            <div
+                              style={{
+                                width: "100%",  
+                                textAlign: "center",  
+                                margin: "10px 0",  
+                              }}
+                            >
+                              <p className="message-date" style={{ fontSize: "0.8rem", color: "#888" }}>
+                                {formattedDate}
+                              </p>
                             </div>
                           )}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+                          <div
+                            className="message-bubble p-2"
+                            style={{
+                              backgroundColor: isSender ? "#007bff" : "#f0f0f0",
+                              color: isSender ? "#fff" : "#000",
+                              borderRadius: "15px",
+                              maxWidth: "80%",
+                              position: "relative",
+                            }}
+                            onMouseEnter={() => setHoverMessage(msg.message_id)} 
+                            onMouseLeave={() => setHoverMessage(null)}
+                          >
+                            {/* Displaying the Button */}
+                            <Button
+                              style={{
+                                position: "absolute",  
+                                left: isSender ? "0" : "auto",  
+                                right: !isSender ? "0" : "auto", 
+                                top: "50%",
+                                transform: "translateY(-50%)",
+                                visibility: hoverMessage === msg.message_id ? "visible" : "hidden", 
+                              }}
+                              onClick={() => handleReplyClick(msg)}  
+                            >
+                              Reply
+                            </Button>
 
-                  {/* Active User Badge */}
-                  {item.type === 'user' && activeUsers.some(
-                    (activeUser) => String(activeUser.userId) === String(item.user_id)
-                  ) && (
-                    <span className="badge bg-success position-absolute top-0 end-0 m-2">
-                      Active
-                    </span>
-                  )}
-                </div>
-              </ListGroup.Item>
-            );
-          })
-        ) : (
-          <ListGroup.Item>No users or groups found</ListGroup.Item>
-        )}
-      </ListGroup>
-    </div>
-        </Col>
-        <Col
-          md={8}
-          className="d-flex flex-column bg-white rounded shadow-sm p-3"
-        >
-          {receiverName && !getGroupId && (
-            <div className="mb-2 d-flex align-items-center">
-              <Avatar 
-                    label="" 
-                    size="large" 
-                    style={{ backgroundColor: '#8BA5B9FF', color: '#ffffff' }} 
-                    shape="circle" 
-                  />
-              <strong style={{textTransform:"capitalize"}}>{receiverName}</strong>
-            </div>
-          )}
-          {showGroupName && getGroupId && (
-            <div className="mb-2 d-flex align-items-center">
-              <Avatar 
-                  label="" 
-                  size="large" 
-                  style={{ backgroundColor: '#AAB6C0FF', color: '#ffffff' }} 
-                  shape="circle" 
-                />
-              <div>
-                <strong className="capitalize" style={{textTransform:"capitalize"}}>{showGroupName}</strong>
-                <ul
-                  className="d-flex flex-row flex-wrap gap-2"
-                  style={{ listStyleType: "none", paddingLeft: 0 }}
-                >
-                  {selectedGroup.length > 0 ? (
-                    selectedGroup.map((user) => (
-                      <li key={user.user_id}>
-                        {user.user_id === parseInt(userId, 10) ? (
-                          <span>You,</span>
-                        ) : (
-                          <span>{user.username},</span>
-                        )}
-                      </li>
-                    ))
-                  ) : (
-                    <p>No members found.</p>
-                  )}
-                </ul>
-              </div>
-            </div>
-          )}
+                            {/* Reply content (if any) */}
+                            {msg.prevContent && (
+                              <div className="reply-content" style={{ marginBottom: "10px", padding: "10px", backgroundColor: "#BEB8B8FF", borderRadius: "5px" }}>
+                                <strong>Replying to:</strong>
+                                <p>{msg.rebackName}</p>
+                                <p>{msg.prevContent}</p>
+                              </div>
+                            )}
 
-          {/* Typing indicator */}
-          {typingUsers.length > 0 && (
-            <div className="mb-2">
-              <ul>
-                {typingUsers.map((user, index) => (
-                  <li key={`${user}-${index}`} style={{ textTransform: "capitalize", color: "#0FE461FF" }}>
-                    {user} is typing...
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+                            {/* Message Sender Name */}
+                            <strong>
+                              {isSender ? "You" : msg.sender_name}
+                            </strong>
 
-          {/* Message Display Section */}
-          <div
-              className="flex-grow-1 overflow-auto border border-light rounded p-3 mb-2"
-              style={{ height: "400px", backgroundColor: "#f1f1f1" }}
-              ref={chatcontainerRef}
-            >
-              {messages.length > 0 ? (
-                messages.map((msg, index) => {
-                  const isSender = parseInt(msg.sender_id, 10) === parseInt(userId, 10); 
-                  
-                  // Format the date
-                  const formattedDate = formatDate(msg.timestamp);
+                            {/* Message Content */}
+                            <p>{msg.content}</p>
+                            <p>{timeTracker(new Date(msg.timestamp))}</p>
 
-                  const showDate = index === 0 || formattedDate !== formatDate(messages[index - 1].timestamp);
-                  
-                  return (
-                    <div
-                      key={msg.message_id}
-                      className={`d-flex mb-2 ${isSender ? "justify-content-end" : "justify-content-start"}`}
-                    >
-                      {showDate && (
-                        <div
-                          style={{
-                            width: "100%",  
-                            textAlign: "center",  
-                            margin: "10px 0",  
-                          }}
-                        >
-                          <p className="message-date" style={{ fontSize: "0.8rem", color: "#888" }}>
-                            {formattedDate}
+                          
+                          {/* messge confirem */}
+                          <p>
+                              { msg.status === "check" ? (
+                                <>
+                                  <i className="pi pi-check" style={{ color: 'black' }}></i>
+                                  <i className="pi pi-check" style={{ color: 'black' }}></i>
+                                </>
+                              ) : (
+                                <i className="pi pi-check" style={{ color: 'black' }}></i>
+                              )}
                           </p>
+
+                          <p>
+                            {}
+                          </p>
+
+                            {/* Display Files (if any) */}
+
+                            {msg.files && msg.files.length > 0 && (
+                              <div className="mt-2">
+                                <ul style={{ listStyleType: "none", paddingLeft: "0" }}>
+                                  {msg.files.map((file) => (
+                                    <li key={file.file_id}>
+                                      {/* File type handling */}
+                                      {file.file_name && (
+                                        <>
+                                          {/* If the file is an image */}
+                                          {file.file_name.match(/\.(jpg|jpeg|png|gif)$/i) && (
+                                            <div className="mt-2">
+                                              <img
+                                                src={`${fileUrl}/${file.file_name}`}
+                                                alt="Uploaded file"
+                                                style={{
+                                                  maxWidth: "200px",
+                                                  maxHeight: "200px",
+                                                }}
+                                              />
+                                            </div>
+                                          )}
+
+                                          {/* If the file is a PDF */}
+                                          {file.file_name.match(/\.(pdf)$/i) && (
+                                            <div className="mt-2">
+                                              <a
+                                                href={file.file_url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                              >
+                                                <strong>View PDF</strong>
+                                              </a>
+                                            </div>
+                                          )}
+
+                                          {/* If the file is an Excel file */}
+                                          {file.file_name.match(/\.(xls|xlsx)$/i) && (
+                                            <div className="mt-2">
+                                              <a
+                                                href={file.file_url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                              >
+                                                <strong>View Excel File</strong>
+                                              </a>
+                                            </div>
+                                          )}
+
+                                          {/* Default fallback for other file types */}
+                                          {!file.file_name.match(/\.(jpg|jpeg|png|gif|pdf|xls|xlsx)$/i) && (
+                                            <div className="mt-2">
+                                              <a
+                                                href={file.file_url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                              >
+                                                <strong>Download File</strong>
+                                              </a>
+                                            </div>
+                                          )}
+                                        </>
+                                      )}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+
+                          </div>
                         </div>
-                      )}
-                      <div
-                        className="message-bubble p-2"
-                        style={{
-                          backgroundColor: isSender ? "#007bff" : "#f0f0f0",
-                          color: isSender ? "#fff" : "#000",
-                          borderRadius: "15px",
-                          maxWidth: "80%",
-                          position: "relative",
-                        }}
-                        onMouseEnter={() => setHoverMessage(msg.message_id)} 
-                        onMouseLeave={() => setHoverMessage(null)}
+                      );
+                    })
+                  ) : (
+                    <div>No messages yet.</div>
+                  )}
+              </div>
+
+              {isShow && (
+                <Form
+                  onSubmit={
+                    receiverName && !getGroupId
+                      ? handleSendMessage
+                      : handleSendGroupMessage
+                  }
+                  className="bg-light"
+                >
+                  <Row className="d-flex align-items-center gap-3">
+                    {/* File input with attachment icon */}
+                    <Col xs="auto">
+                      <label
+                        htmlFor="fileInput"
+                        className="d-flex align-items-center p-2"
                       >
-                        {/* Displaying the Button */}
-                        <Button
-                          style={{
-                            position: "absolute",  
-                            left: isSender ? "0" : "auto",  
-                            right: !isSender ? "0" : "auto", 
-                            top: "50%",
-                            transform: "translateY(-50%)",
-                            visibility: hoverMessage === msg.message_id ? "visible" : "hidden", 
-                          }}
-                          onClick={() => handleReplyClick(msg)}  
-                        >
-                          Reply
-                        </Button>
+                        <FiPaperclip size={20} className="me-2" />
+                        <Form.Control
+                          id="fileInput"
+                          type="file"
+                          multiple
+                          onChange={handleFileChange}
+                          accept="image/*,application/pdf,.doc,.docx,.txt"
+                          className="d-none"
+                        />
+                      </label>
+                    </Col>
 
-                        {/* Reply content (if any) */}
-                        {msg.prevContent && (
-                          <div className="reply-content" style={{ marginBottom: "10px", padding: "10px", backgroundColor: "#BEB8B8FF", borderRadius: "5px" }}>
-                            <strong>Replying to:</strong>
-                            <p>{msg.rebackName}</p>
-                            <p>{msg.prevContent}</p>
-                          </div>
-                        )}
+                    {/* Message input */}
 
-                        {/* Message Sender Name */}
-                        <strong>
-                          {isSender ? "You" : msg.sender_name}
-                        </strong>
+                    <Col>
 
-                        {/* Message Content */}
-                        <p>{msg.content}</p>
-                        <p>{timeTracker(new Date(msg.timestamp))}</p>
-
-                       
-                       {/* messge confirem */}
-                       <p>
-                          { msg.status === "check" ? (
-                            <>
-                              <i className="pi pi-check" style={{ color: 'black' }}></i>
-                              <i className="pi pi-check" style={{ color: 'black' }}></i>
-                            </>
-                          ) : (
-                            <i className="pi pi-check" style={{ color: 'black' }}></i>
-                          )}
-                       </p>
-
-                       <p>
-                        {}
-                       </p>
-
-                        {/* Display Files (if any) */}
-
-                        {msg.files && msg.files.length > 0 && (
-                          <div className="mt-2">
-                            <ul style={{ listStyleType: "none", paddingLeft: "0" }}>
-                              {msg.files.map((file) => (
-                                <li key={file.file_id}>
-                                  {/* File type handling */}
-                                  {file.file_name && (
-                                    <>
-                                      {/* If the file is an image */}
-                                      {file.file_name.match(/\.(jpg|jpeg|png|gif)$/i) && (
-                                        <div className="mt-2">
-                                          <img
-                                            src={`${fileUrl}/${file.file_name}`}
-                                            alt="Uploaded file"
-                                            style={{
-                                              maxWidth: "200px",
-                                              maxHeight: "200px",
-                                            }}
-                                          />
-                                        </div>
-                                      )}
-
-                                      {/* If the file is a PDF */}
-                                      {file.file_name.match(/\.(pdf)$/i) && (
-                                        <div className="mt-2">
-                                          <a
-                                            href={file.file_url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                          >
-                                            <strong>View PDF</strong>
-                                          </a>
-                                        </div>
-                                      )}
-
-                                      {/* If the file is an Excel file */}
-                                      {file.file_name.match(/\.(xls|xlsx)$/i) && (
-                                        <div className="mt-2">
-                                          <a
-                                            href={file.file_url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                          >
-                                            <strong>View Excel File</strong>
-                                          </a>
-                                        </div>
-                                      )}
-
-                                      {/* Default fallback for other file types */}
-                                      {!file.file_name.match(/\.(jpg|jpeg|png|gif|pdf|xls|xlsx)$/i) && (
-                                        <div className="mt-2">
-                                          <a
-                                            href={file.file_url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                          >
-                                            <strong>Download File</strong>
-                                          </a>
-                                        </div>
-                                      )}
-                                    </>
-                                  )}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-
+                    {replyingTo && replyingTo.sender_name && replyingTo.content && (
+                      <div className="replying-to">
+                        <strong>Replying to:</strong> 
+                        <p className="p-0 m-0">{replyingTo.sender_name}</p>
+                        <p className="px-4">{replyingTo.content}</p>
                       </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <div>No messages yet.</div>
-              )}
-          </div>
+                    )}
 
-          {isShow && (
-            <Form
-              onSubmit={
-                receiverName && !getGroupId
-                  ? handleSendMessage
-                  : handleSendGroupMessage
-              }
-              className="bg-light"
-            >
-              <Row className="d-flex align-items-center gap-3">
-                {/* File input with attachment icon */}
-                <Col xs="auto">
-                  <label
-                    htmlFor="fileInput"
-                    className="d-flex align-items-center p-2"
+                      
+                      <Form.Control
+                        type="text"
+                        placeholder="Type a message..."
+                        value={inputValue}
+                        // onChange={(e) => setInputValue(e.target.value)}
+                        onChange={handleInputChange}
+                        required
+                      />
+
+
+
+                    </Col>
+                  </Row>
+
+                  {/* Display selected file preview */}
+
+                  {file && file.length > 0 && (
+                    <Row className="mt-3">
+                      {file.map((f, index) => (
+                        <Col
+                          key={index}
+                          xs="auto"
+                          className="mb-2 position-relative"
+                        >
+                          <div className="d-flex flex-column align-items-center">
+                            {f.type.startsWith("image") && (
+                              <img
+                                src={URL.createObjectURL(f)}
+                                alt={`File Preview ${index}`}
+                                className="img-fluid mb-2"
+                                style={{
+                                  maxWidth: "25px",
+                                  maxHeight: "100px",
+                                  objectFit: "contain",
+                                }}
+                              />
+                            )}
+
+                            {f.type === "application/pdf" && (
+                              <div className="text-center mb-2">
+                                <strong>PDF file selected</strong>
+                              </div>
+                            )}
+
+                            {f.type === "application/msword" ||
+                            f.type ===
+                              "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ? (
+                              <div className="text-center mb-2">
+                                <strong>Word document selected</strong>
+                              </div>
+                            ) : f.type === "text/plain" ? (
+                              <div className="text-center mb-2">
+                                <strong>Text file selected</strong>
+                              </div>
+                            ) : null}
+
+                            {/* Cancel button */}
+                            <button
+                              type="button"
+                              className="btn btn-link position-absolute top-0 end-0"
+                              onClick={() => removeFile(index)}
+                              style={{ fontSize: "16px", color: "#dc3545" }} // Red color for cancel
+                            >
+                              <FiX />
+                            </button>
+                          </div>
+                        </Col>
+                      ))}
+                    </Row>
+                  )}
+
+                  {/* Send button */}
+                  <Button
+                    type="submit"
+                    variant="success"
+                    disabled={
+                      (receiverName && !getGroupId ? !receiverId : !getGroupId) ||
+                      !inputValue
+                    }
+                    className="w-100 mt-2"
                   >
-                    <FiPaperclip size={20} className="me-2" />
-                    <Form.Control
-                      id="fileInput"
-                      type="file"
-                      multiple
-                      onChange={handleFileChange}
-                      accept="image/*,application/pdf,.doc,.docx,.txt"
-                      className="d-none"
-                    />
-                  </label>
-                </Col>
+                    Send
+                  </Button>
+                </Form>
+              )}
 
-                {/* Message input */}
-
-                <Col>
-
-                {replyingTo && replyingTo.sender_name && replyingTo.content && (
-                  <div className="replying-to">
-                    <strong>Replying to:</strong> 
-                    <p className="p-0 m-0">{replyingTo.sender_name}</p>
-                    <p className="px-4">{replyingTo.content}</p>
-                  </div>
-                )}
-
-                  
+            </Col>
+          </Row>
+          {/* Create Group Dialog */}
+          <Dialog
+            header="Create New Group"
+            visible={showCreateGroup}
+            onHide={handleCloseDialog}
+            style={{ width: "30vw", height: "30vh", backgroundColor: "#ffffff" }}
+            className="p-fluid p-shadow-24 p-3 m-3"
+          >
+            <Card style={{ height: "100%" }} className="p-shadow-24 p-mb-4 p-p-3">
+              <Form className="mb-3">
+                {/* Group Name Input */}
+                <Form.Group controlId="groupName">
+                  <Form.Label className="text-muted">Group Name</Form.Label>
                   <Form.Control
                     type="text"
-                    placeholder="Type a message..."
-                    value={inputValue}
-                    // onChange={(e) => setInputValue(e.target.value)}
-                    onChange={handleInputChange}
+                    placeholder="Enter group name"
+                    value={groupName}
+                    onChange={(e) => setGroupName(e.target.value)}
                     required
+                    className="mb-3 p-2"
+                    style={{
+                      backgroundColor: "#e0e0e0",
+                      border: "1px solid #ccc",
+                      borderRadius: "5px",
+                    }}
                   />
+                </Form.Group>
 
+                {/* MultiSelect for Users */}
+                <Form.Group controlId="selectUsers">
+                  <Form.Label className="text-muted">Select Users</Form.Label>
+                  <MultiSelect
+                    value={selectedUsers}
+                    options={userlist}
+                    onChange={(e) => setSelectedUsers(e.value)}
+                    optionLabel="username"
+                    display="chip"
+                    placeholder="Select users"
+                    style={{
+                      width: "100%",
+                      backgroundColor: "#e0e0e0",
+                      border: "1px solid #ccc",
+                      borderRadius: "5px",
+                      text: "black",
+                    }}
+                    className="mb-3"
+                  />
+                </Form.Group>
 
+                {/* Create Group Button */}
+                <Button
+                  type="button"
+                  label="Create Group"
+                  icon="pi pi-check"
+                  onClick={handleCreateGroup}
+                  disabled={!groupName || selectedUsers.length === 0}
+                  className="p-button-success w-100"
+                />
+              </Form>
+            </Card>
 
-                </Col>
-              </Row>
-
-              {/* Display selected file preview */}
-
-              {file && file.length > 0 && (
-                <Row className="mt-3">
-                  {file.map((f, index) => (
-                    <Col
-                      key={index}
-                      xs="auto"
-                      className="mb-2 position-relative"
-                    >
-                      <div className="d-flex flex-column align-items-center">
-                        {f.type.startsWith("image") && (
-                          <img
-                            src={URL.createObjectURL(f)}
-                            alt={`File Preview ${index}`}
-                            className="img-fluid mb-2"
-                            style={{
-                              maxWidth: "25px",
-                              maxHeight: "100px",
-                              objectFit: "contain",
-                            }}
-                          />
-                        )}
-
-                        {f.type === "application/pdf" && (
-                          <div className="text-center mb-2">
-                            <strong>PDF file selected</strong>
-                          </div>
-                        )}
-
-                        {f.type === "application/msword" ||
-                        f.type ===
-                          "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ? (
-                          <div className="text-center mb-2">
-                            <strong>Word document selected</strong>
-                          </div>
-                        ) : f.type === "text/plain" ? (
-                          <div className="text-center mb-2">
-                            <strong>Text file selected</strong>
-                          </div>
-                        ) : null}
-
-                        {/* Cancel button */}
-                        <button
-                          type="button"
-                          className="btn btn-link position-absolute top-0 end-0"
-                          onClick={() => removeFile(index)}
-                          style={{ fontSize: "16px", color: "#dc3545" }} // Red color for cancel
-                        >
-                          <FiX />
-                        </button>
-                      </div>
-                    </Col>
-                  ))}
-                </Row>
-              )}
-
-              {/* Send button */}
-              <Button
-                type="submit"
-                variant="success"
-                disabled={
-                  (receiverName && !getGroupId ? !receiverId : !getGroupId) ||
-                  !inputValue
-                }
-                className="w-100 mt-2"
-              >
-                Send
-              </Button>
-            </Form>
-          )}
-
-        </Col>
-      </Row>
-      {/* Create Group Dialog */}
-      <Dialog
-        header="Create New Group"
-        visible={showCreateGroup}
-        onHide={handleCloseDialog}
-        style={{ width: "30vw", height: "30vh", backgroundColor: "#ffffff" }}
-        className="p-fluid p-shadow-24 p-3 m-3"
-      >
-        <Card style={{ height: "100%" }} className="p-shadow-24 p-mb-4 p-p-3">
-          <Form className="mb-3">
-            {/* Group Name Input */}
-            <Form.Group controlId="groupName">
-              <Form.Label className="text-muted">Group Name</Form.Label>
-              <Form.Control
-                type="text"
-                placeholder="Enter group name"
-                value={groupName}
-                onChange={(e) => setGroupName(e.target.value)}
-                required
-                className="mb-3 p-2"
-                style={{
-                  backgroundColor: "#e0e0e0",
-                  border: "1px solid #ccc",
-                  borderRadius: "5px",
-                }}
-              />
-            </Form.Group>
-
-            {/* MultiSelect for Users */}
-            <Form.Group controlId="selectUsers">
-              <Form.Label className="text-muted">Select Users</Form.Label>
-              <MultiSelect
-                value={selectedUsers}
-                options={userlist}
-                onChange={(e) => setSelectedUsers(e.value)}
-                optionLabel="username"
-                display="chip"
-                placeholder="Select users"
-                style={{
-                  width: "100%",
-                  backgroundColor: "#e0e0e0",
-                  border: "1px solid #ccc",
-                  borderRadius: "5px",
-                  text: "black",
-                }}
-                className="mb-3"
-              />
-            </Form.Group>
-
-            {/* Create Group Button */}
-            <Button
-              type="button"
-              label="Create Group"
-              icon="pi pi-check"
-              onClick={handleCreateGroup}
-              disabled={!groupName || selectedUsers.length === 0}
-              className="p-button-success w-100"
-            />
-          </Form>
-        </Card>
-
-      
-      </Dialog>
+          
+          </Dialog>
     </Container>
   );
 }

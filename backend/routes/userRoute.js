@@ -421,6 +421,7 @@ router.get('/getGroupMessageLength', async (req, res) => {
 router.post('/getGroupMessageRead', async (req, res) => {
     try {
         const { userId, groupId } = req.body; 
+        console.log("userId", userId, "groupId", groupId);
         // Check if the user is a member of the group
         const groupMember = await GroupMember.findOne({
             where: {
@@ -544,11 +545,13 @@ router.get('/getLastGroupMessage', async (req, res) => {
             });
             return {
                 groupId,
-                content: messages.length > 0 ? messages[0].content : null
+                content: messages.length > 0 ? messages[0].content : null,
+                created_at: messages.length > 0 ?   messages[0].created_at : null  
             };
         });
         const lastMessages = await Promise.all(lastMessagesPromises);
         res.json(lastMessages);
+        console.log(lastMessages)
     } catch (error) {
         console.error('Error fetching last group message:', error);
         res.status(500).json({ error: 'Internal server error' });
