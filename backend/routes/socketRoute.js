@@ -312,19 +312,24 @@ function websocketRoute(server) {
         // Listen for 'clearMessages' event from the client
         socket.on('clearMessages', async (clearId) => {
             try {
+                // Find all messages that are 'uncheck' for the given sender_id
                 const messages = await Message.findAll({
                     where: {
                         sender_id: clearId,
-                        status: 'uncheck',  
+                        status: 'uncheck',
                     }
                 });
-
+        
+                // If no messages are found, send an empty response
                 if (messages.length === 0) {
                     socket.emit('clearMessagesResponse', []);
                     return;
                 }
-
-                // Update messages to status 'check'
+        
+                // Extract message_ids of the messages to be updated
+                const messageIds = messages.map(msg => msg.message_id);
+        
+                // Update the messages with 'uncheck' status to 'check'
                 const [updatedCount] = await Message.update(
                     { status: 'check' },
                     {
@@ -334,19 +339,33 @@ function websocketRoute(server) {
                         }
                     }
                 );
-
-                console.log("log the ", updatedCount);
-                if (updatedCount === 0) {
-                    console.log("log all the data++++")
-                    socket.emit('clearMessagesResponse', { message: 'No messages were updated' });
-                } else {
-                    socket.emit('clearMessagesResponse', { message: 'Messages cleared successfully', updatedCount });
+        
+                // Find the updated messages to log their new status
+                const updatedMessages = await Message.findAll({
+                    where: {
+                        message_id: messageIds,
+                    }
+                });
+        
+                // Log the updated messages
+                console.log('Updated messages:', updatedMessages);
+        
+                if (clients[clearId]) {
+ender
+                    clients[clearId].emit('senderMessage', updatedMessages);
                 }
+        
+                // Optionally send the updated messages to the original socket that requested the clear
+                socket.emit('clearMessagesResponse', updatedMessages);
+        
             } catch (error) {
-                console.error("Error fetching messages:", error);
-                socket.emit('clearMessagesResponse', { error: "Failed to clear messages" });
+                console.error('Error while clearing messages:', error);
+                socket.emit('clearMessagesResponse', { error: 'An error occurred' });
             }
         });
+        
+        
+
 
         
 

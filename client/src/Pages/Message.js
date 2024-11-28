@@ -102,7 +102,7 @@ const handleUserClick = (user) => {
   handleCheckId(user.user_id);
   clearStoreMessage(user.user_id);
   handleLeaveGroup(prevGroupId);
-  fetchMessages(userId, user.user_id);
+
 };
 
 
@@ -117,7 +117,8 @@ const clearStoreMessage = async (clearId) => {
           if (response.error) {
               console.error("Error clearing messages:", response.error);
           } else {
-              console.log(response.message); 
+            console.log(response);
+              fetchMessages(userId, clearId);
               handleShowLength(userId); 
           }
       });
@@ -179,19 +180,34 @@ useEffect(() => {
 }, [accessToken]);
 
 useEffect(() => {
-  if (socket) {   
-    const senderMessage = (newMessage) => {
-      setMessages((prevMessages) => {
-          const messageIndex = prevMessages.findIndex((msg) => msg.message_id === newMessage.message_id);
-          if (messageIndex !== -1) {
-              const updatedMessages = [...prevMessages];
-              updatedMessages[messageIndex] = { ...updatedMessages[messageIndex], ...newMessage };
-              return updatedMessages;
-          } else {
-              return [...prevMessages, newMessage];
-          }
-      });
-  };
+  if (socket) {     
+      const senderMessage = (newMessage) => {
+          setMessages((prevMessages) => {
+              if (Array.isArray(newMessage)) {
+                  const updatedMessages = [...prevMessages];
+                  newMessage.forEach((msg) => {
+                      const messageIndex = updatedMessages.findIndex((prevMsg) => prevMsg.message_id === msg.message_id);
+                      if (messageIndex !== -1) {
+                          updatedMessages[messageIndex] = { ...updatedMessages[messageIndex], ...msg };
+                      } else {
+                          updatedMessages.push(msg);
+                      }
+                  });
+                  return updatedMessages;
+              } else {
+                  const messageIndex = prevMessages.findIndex((msg) => msg.message_id === newMessage.message_id);
+                  if (messageIndex !== -1) {
+                      const updatedMessages = [...prevMessages];
+                      updatedMessages[messageIndex] = { ...updatedMessages[messageIndex], ...newMessage };
+                      return updatedMessages;
+                  } else {
+                      return [...prevMessages, newMessage];
+                  }
+              }
+          });
+      };
+  
+  
   
     //message reciver with used id and not the current user.
       const handleReceiveMessage = (newMessage) => {
