@@ -480,13 +480,41 @@ useEffect(() => {
   if (socket) {
     const handleReceiveGroupMessage = (newMessage) => {
       if (newMessage.group_id === currentGroupId) {
-        handelGroupMessageRead( userId, newMessage.group_id,); 
-        setMessages((prevMessages) => [...prevMessages, newMessage]);
+        handelGroupMessageRead(userId, newMessage.group_id);
         handleLastGroupMessage(userId);
+            // socket.emit("groupMessagerespone", newMessage);
+        setMessages((prevMessages) => {
+          if (Array.isArray(newMessage)) {
+            if (newMessage.length === 0) {
+              return prevMessages;
+            }
+            const filteredMessages = newMessage.filter(msg => msg.receiver_id === parseInt(checkId, 10));
+            const updatedMessages = [...prevMessages];
+            filteredMessages.forEach((msg) => {
+              const messageIndex = updatedMessages.findIndex((prevMsg) => prevMsg.message_id === msg.message_id);
+              if (messageIndex !== -1) {
+                updatedMessages[messageIndex] = { ...updatedMessages[messageIndex], ...msg };
+              } else {
+                updatedMessages.push(msg);
+              }
+            });
+            return updatedMessages;
+          } else {
+            const messageIndex = prevMessages.findIndex((msg) => msg.message_id === newMessage.message_id);
+            if (messageIndex !== -1) {
+              const updatedMessages = [...prevMessages];
+              updatedMessages[messageIndex] = { ...updatedMessages[messageIndex], ...newMessage };
+              return updatedMessages;
+            } else {
+              return [...prevMessages, newMessage];
+            }
+          }
+        });
       } else {
-        console.log(`Message  (group_id: ${newMessage.group_id}):`, newMessage);
+        console.log(`Message (group_id: ${newMessage.group_id}):`, newMessage);
       }
     };
+    
     // Handle notifications for groups user;
     const handleReceiveGroupNotification = (notification) => {
       if (notification.group_id !== currentGroupId) {

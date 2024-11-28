@@ -188,6 +188,7 @@ function websocketRoute(server) {
                     timestamp: message.created_at,
                     files: files || [],
                     created_at: message.created_at,
+                    status: message.status
                 };
                 const groupUsers = groups[message.group_id] || [];
                 const activeUsers = Object.keys(clients);
@@ -195,7 +196,7 @@ function websocketRoute(server) {
                 groupUsers.forEach(userId => {
                     if (clients[userId]) {
                          
-                        
+
                           
 
                         clients[userId].emit('receiveGroupMessage', messageData);
@@ -220,6 +221,45 @@ function websocketRoute(server) {
                 });
 
             }
+
+
+      
+            // For group message response
+            socket.on("groupMessagerespone", async (msg) => {
+                try {
+            
+                    const message = await Message.findOne({
+                        where: { message_id: msg.message_id },
+                    });
+
+                    if (!message || message.status === "check") {
+                        console.log("Message already checked, skipping update.");
+                        return; // Early exit if the message is already checked
+                    }
+
+                    // Wait for the update to complete
+                    const updateResult = await Message.update(
+                        { status: "check" },
+                        { where: { message_id: msg.message_id } }
+                    );
+
+                    // If update was successful, retrieve the updated message
+                    if (updateResult[0] > 0) {
+                        const updatedMessage = await Message.findOne({
+                            where: { message_id: msg.message_id },
+                        });
+
+                        if (updatedMessage) {
+                            console.log(updatedMessage);
+                            broadcastGroupMessage(updatedMessage, []); // Send updated message to clients
+                        }
+                    }
+                } catch (error) {
+                    console.error("Error updating message status:", error);
+                }
+            });
+
+            
 
 
             
