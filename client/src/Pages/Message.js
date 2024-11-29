@@ -55,6 +55,8 @@ export default function Message() {
   const [storeUserList, setStoreUserList] = useState([]);
   const [lastGroupMessage, setLastGroupMessage] = useState([]);
   const [tick, setTick] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const [typingUser, setTypingUser] = useState(null);
 
 
   //chat contaienr ref..
@@ -496,13 +498,14 @@ const handleCheckId = (checkId) => {
 
 
 
-//group message handler
+//Group Message Recive all the user
 useEffect(() => {
   if (socket) {
     const handleReceiveGroupMessage = (newMessage) => {
       if (newMessage.group_id === currentGroupId) {
         handelGroupMessageRead(userId, newMessage.group_id);
         handleLastGroupMessage(userId);
+
         setMessages((prevMessages) => {
           if (Array.isArray(newMessage)) {
             if (newMessage.length === 0) {
@@ -530,6 +533,8 @@ useEffect(() => {
             }
           }
         });
+
+
       } else {
         console.log(`Message (group_id: ${newMessage.group_id}):`, newMessage);
       }
@@ -576,7 +581,7 @@ const handelGroupMessageLength = async (userId) => {
 
 
   
-
+// Handle group message read
 const handelGroupMessageRead = async (userId, groupId) => {
   try {
     // Emit the 'getGroupMessageRead' event to the server
@@ -712,13 +717,13 @@ const handleInputChange = (e) => {
 };
 
 
-const [isTyping, setIsTyping] = useState(false);
-const [typingUser, setTypingUser] = useState(null);
+
 // Listen for typing event
 useEffect(() => {
   if (socket) {
     socket.on('userTyping', (data) => {
       if (data.type === 'group' && data.groupId === currentGroupId) {
+        console.log("data++++", data)
         setTypingUser(data.username);
         setIsTyping(data.typing);
       } else if (data.type === 'user' && data.receiverId === parseInt(userId, 10)) {
@@ -744,12 +749,11 @@ useEffect(() => {
   }
 
   return () => {
-    // Clean up the listener when component unmounts or socket disconnects
     if (socket) {
       socket.off('userTyping');
     }
   };
-}, [checkId, socket]); // Run when checkId or socket changes
+}, [checkId, socket, currentGroupId]); // Run when checkId or socket changes
 
 
   
@@ -994,8 +998,6 @@ const handleLastGroupMessage = (userId) => {
                         </span>
                       )}
 
-
-
                     </div>
                   </ListGroup.Item>
                 );
@@ -1065,20 +1067,9 @@ const handleLastGroupMessage = (userId) => {
                 </div>
               )}
 
-              {/* Typing indicator */}
-              {/* {typingUsers.length > 0 && (
-                <div className="mb-2">
-                  <ul>
-                    {typingUsers.map((user, index) => (
-                      <li key={`${user}-${index}`} style={{ textTransform: "capitalize", color: "#0FE461FF" }}>
-                        {user} is typing...
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )} */}
 
-{isTyping && typingUser && <div>{typingUser} is typing...</div>}
+              {/* Typing indicator */}
+              {isTyping && typingUser && <div>{typingUser} is typing...</div>}
 
               {/* Message Display Section */}
               <div
