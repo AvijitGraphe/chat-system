@@ -57,6 +57,8 @@ export default function Message() {
   const [tick, setTick] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [typingUser, setTypingUser] = useState(null);
+  const [typingTrack, setTypingTrack] = useState(false);
+
 
 
   //chat contaienr ref..
@@ -167,7 +169,9 @@ const clearStoreMessage = async (clearId) => {
         if (response.error) {
           console.error("Error clearing messages:", response.error);
         } else {
-          fetchMessages(userId, clearId);
+          if(!typingTrack){
+            fetchMessages(userId, clearId);
+          }
           handleShowLength(userId); 
         }
       });
@@ -335,8 +339,6 @@ useEffect(() => {
 }, [socket]);
 
 
-
-
   const handleShowLength = (userId) => {
     socket.emit('getMessageLength', userId);
     socket.on('messageLength', (messageCounts) => {
@@ -348,9 +350,6 @@ useEffect(() => {
       console.error('Error fetching message length:', error);
     });
   };
-
-
-
 
 
 //Show all groups list
@@ -401,6 +400,10 @@ const handleShowGroups = (userId) => {
     console.error('Error fetching groups:', error);
   });
 };
+
+
+
+{/* handle group data send */}
 // Handle group data send 
 const handleGroupClick = (group) => {
   try {
@@ -412,11 +415,12 @@ const handleGroupClick = (group) => {
     setAnotherCondition(true);
     setMessages([]);
     setReceiverName([]);
-    handleGetGroupMessages(group.group_id);
     setActiveGroup(group.group_id);
     setReplyingTo([]);
     setCheckId(null);
     setInputValue("");
+
+
 
     socket.emit('getGroupMembers', group.group_id);
 
@@ -427,10 +431,13 @@ const handleGroupClick = (group) => {
     });
 
 
+
     // Handle errors
     socket.on('error', (error) => {
       console.error("Error fetching group members:", error);
     });
+
+    // handleGetGroupMessages(group.group_id);
 
   } catch (error) {
     console.error("Error handling group click:", error);
@@ -504,18 +511,10 @@ const handleCheckId = (checkId) => {
 //Group Message Recive all the user
 useEffect(() => {
   if (socket) {
-
-
     const handleReceiveGroupMessage = (newMessage) => {
       if (newMessage.group_id === currentGroupId) {
-        
         handelGroupMessageRead(userId, newMessage.group_id);
         handleLastGroupMessage(userId);
-
-        groupMessgeread(newMessage, userId);
-
-       
-       
         setMessages((prevMessages) => {
           if (Array.isArray(newMessage)) {
             if (newMessage.length === 0) {
@@ -543,33 +542,10 @@ useEffect(() => {
             }
           }
         });
-
-
-
-        
-        console.log(newMessage,userId)
-
-
-
       } else {
         console.log(`Message (group_id: ${newMessage.group_id}):`, newMessage);
       }
     };
-    
-
-
-     // Emit the read receipt
-    const groupMessgeread = (newMessage, userId)=>{
-      // socket.emit('getGroupMessageReadResponse', {
-      //   messageId: newMessage.message_id,
-      //   groupId: newMessage.group_id,
-      //   userId: userId,
-      // }
-
-      // );
-    }
-
-
     // Handle notifications for groups user;
     const handleReceiveGroupNotification = (notification) => {
       if (notification.group_id !== currentGroupId) {
@@ -578,7 +554,6 @@ useEffect(() => {
         handleLastGroupMessage(userId);
       }
     };
-
     socket.on("receiveGroupMessage", handleReceiveGroupMessage);
     socket.on("receiveGroupNotification", handleReceiveGroupNotification);
     return () => {
@@ -589,8 +564,6 @@ useEffect(() => {
 }, [socket, currentGroupId, userId]);
 
   
-
-
 
 
 // Function to fetch unread message length for the user
@@ -619,6 +592,7 @@ const handelGroupMessageRead = async (userId, groupId) => {
     socket.emit('getGroupMessageRead', userId, groupId);
     socket.on('groupMessageRead', (data) => {
       handelGroupMessageLength(userId);
+      handleGetGroupMessages(groupId);
     });
 
     // Handle error events
@@ -701,11 +675,12 @@ let typingTimeout;
 const handleInputChange = (e) => {
   setInputValue(e.target.value);  
 
+  setTypingTrack(true);
+
   const isTyping = e.target.value ? true : false; 
 
   if (isTyping) {
     if (getGroupId) {
-      console.log("groupId", getGroupId)  
       // If we are in a group chat, use groupId
       socket.emit('typing', {
         userId: userId,         
@@ -715,7 +690,6 @@ const handleInputChange = (e) => {
         username: userName         
       });
     } else if (receiverId) {
-      console.log("receiverId", receiverId)
       // If it's a direct message, use receiverId
       socket.emit('typing', {
         userId: userId,        
@@ -754,15 +728,10 @@ useEffect(() => {
   if (socket) {
     socket.on('userTyping', (data) => {
       if (data.type === 'group' && data.groupId === currentGroupId) {
-        console.log("data++++", data)
         setTypingUser(data.username);
         setIsTyping(data.typing);
       } else if (data.type === 'user' && data.receiverId === parseInt(userId, 10)) {
-        console.log("checkId:", checkId, "data.userId:", data.userId);
-        
         if (parseInt(data.userId, 10) === parseInt(checkId, 10)) {
-          console.log("Typing user:", data.username);
-
           setTypingUser(data.username);
           setIsTyping(data.typing);
         } else {
@@ -1012,6 +981,9 @@ const handleLastGroupMessage = (userId) => {
                                 />
                               )}
 
+                              {/* group message list*/}
+
+
                               {item.type === 'group' && (
                                 <div>
                                   {item.group_id !== currentGroupId && item.sender_id !== userId ? (
@@ -1118,7 +1090,6 @@ const handleLastGroupMessage = (userId) => {
                 >
                   {messages.length > 0 ? (
                     messages.map((msg, index) => {
-                      console.log("msg.group_status", msg.group_status)
                       const isSender = parseInt(msg.sender_id, 10) === parseInt(userId, 10); 
                       
                       // Format the date
@@ -1191,9 +1162,9 @@ const handleLastGroupMessage = (userId) => {
 
                           
                           {/* messge confirem  group_status */}
+
                           <p>
-                            {/* Check if either msg.status or msg.group_status is 'check' */}
-                            { (msg.status === "check" || (msg.group_status && msg.group_status === "check")) ? (
+                            { (msg.status === "check" || (msg.group_status && msg.group_status === "check")) || (msg.logStatus && msg.logStatus === "check") ? (
                               <>
                                 <i className="pi pi-check" style={{ color: 'black' }} aria-label="Checked"></i>
                                 <i className="pi pi-check" style={{ color: 'black' }} aria-label="Checked"></i>
@@ -1202,7 +1173,6 @@ const handleLastGroupMessage = (userId) => {
                               <i className="pi pi-check" style={{ color: 'black' }} aria-label="Not checked"></i>
                             )}
                           </p>
-
 
                           <p>
                         

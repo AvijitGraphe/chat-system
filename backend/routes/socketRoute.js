@@ -208,20 +208,11 @@ function websocketRoute(server) {
                 // Broadcast message to group members
                 groupUsers.forEach(userId => {
                     if (clients[userId]) {
-                         
-
-                          
-
                         clients[userId].emit('receiveGroupMessage', messageData);
-
-
-
-
                     } else {
                         console.log(`No client found for user ${userId}`);
                     }
                 });
-
 
                 activeUsers.forEach(userId => {
                     if (!groupUsers.includes(userId) && clients[userId]) {
@@ -419,6 +410,7 @@ function websocketRoute(server) {
                         prevContent: msg.prevContent,
                         prevMessageId: msg.prevMessageId,
                         rebackName: msg.rebackName,
+                        group_status: msg.group_status,
                         status: msg.status,
                         files: files.map(file => ({
                         file_id: file.file_id,
@@ -674,58 +666,68 @@ function websocketRoute(server) {
 
             // Listen for the 'getGroupMessages' event
             socket.on('getGroupMessages', async (groupId) => {
-                try {
-                // Fetch group messages from the database
-                const messages = await Message.findAll({
-                    where: { group_id: groupId },
-                    include: [
-                    {
-                        model: User,
-                        as: 'sender',
-                        attributes: ['user_id', 'username']
-                    }
-                    ],
-                    order: [['message_id', 'ASC']]
+                const log = await GroupMessageRead.findAll({
+                    where: { group_id: parseInt(groupId, 10) },
                 });
-
-                // If no messages are found, return an empty array
-                if (messages.length === 0) {
-                    return socket.emit('groupMessages', []);
-                }
-
-                // For each message, fetch the attached files and format the response
-                const messagesWithFiles = await Promise.all(
-                    messages.map(async (msg) => {
-                    const files = await ChatFile.findAll({
-                        where: { message_id: msg.message_id }
+            
+                try {
+                    // Fetch group messages from the database
+                    const messages = await Message.findAll({
+                        where: { group_id: groupId },
+                        include: [
+                            {
+                                model: User,
+                                as: 'sender',
+                                attributes: ['user_id', 'username']
+                            }
+                        ],
+                        order: [['message_id', 'ASC']]
                     });
-
-                    return {
-                        message_id: msg.message_id,
-                        sender_id: msg.sender_id,
-                        sender_name: msg.sender ? msg.sender.username : null,
-                        group_id: msg.group_id,
-                        content: msg.content,
-                        prevContent: msg.prevContent,
-                        prevMessageId: msg.prevMessageId,
-                        rebackName: msg.rebackName,
-                        timestamp: msg.created_at,
-                        status: msg.status,
-                        files: files.map(file => ({
-                        file_id: file.file_id,
-                        file_name: file.file_name
-                        }))
-                    };
-                    })
-                );
-
-                // Emit the group messages to the client
-                socket.emit('groupMessages', messagesWithFiles);
+            
+                    // If no messages are found, return an empty array
+                    if (messages.length === 0) {
+                        return socket.emit('groupMessages', []);
+                    }
+                    const messagesWithFiles = await Promise.all(
+                        messages.map(async (msg) => {
+                            const logEntry = log.find(item => item.message_id === msg.message_id);
+                            const logStatus = logEntry ? logEntry.status : 'uncheck';
+            
+    
+                            // Fetch the attached files for this message
+                            const files = await ChatFile.findAll({
+                                where: { message_id: msg.message_id }
+                            });
+            
+                            return {
+                                message_id: msg.message_id,
+                                sender_id: msg.sender_id,
+                                sender_name: msg.sender ? msg.sender.username : null,
+                                group_id: msg.group_id,
+                                content: msg.content,
+                                prevContent: msg.prevContent,
+                                prevMessageId: msg.prevMessageId,
+                                rebackName: msg.rebackName,
+                                timestamp: msg.created_at,
+                                status: msg.status,
+                                logStatus: logStatus,  
+                                group_status: msg.group_status,
+                                files: files.map(file => ({
+                                    file_id: file.file_id,
+                                    file_name: file.file_name
+                                }))
+                            };
+                        })
+                    );
+            
+                    // Emit the group messages with all the relevant data
+                    socket.emit('groupMessages', messagesWithFiles);
                 } catch (error) {
-                console.error("Error fetching group messages:", error);
-                socket.emit('error', 'Failed to retrieve group messages');
+                    console.error("Error fetching group messages: ", error);
+                    socket.emit('groupMessages', []);
                 }
             });
+            
 
 
     
@@ -756,6 +758,7 @@ function websocketRoute(server) {
                     return socket.emit('groupMessageRead', []);
                 }
 
+
                 // Mark the messages as read for the user
                 const data = await Promise.all(messages.map(async (msg) => {
                     const readResponse = await GroupMessageRead.upsert({
@@ -766,6 +769,9 @@ function websocketRoute(server) {
                     });
                     return readResponse;
                 }));
+
+
+
 
                 // Emit the response with the updated message read data
                 socket.emit('groupMessageRead', data);
@@ -881,6 +887,19 @@ function websocketRoute(server) {
             });
             
 
+
+
+            socket.on('getgroupmessageRead', async (userId) => {
+                try {
+                    const messages = await GroupMessageRead.findAll({
+                        where: { user_id : userId },
+                    });
+                    socket.emit('groupMessageRead', updatedMessages);
+                } catch (error) {
+                    console.error('Error while clearing messages:', error);
+                    socket.emit('error', { message: 'Error while clearing messages' });
+                }
+            });
 
             
             // Function to broadcast active user list
