@@ -1,0 +1,138 @@
+         <div
+            className="flex-grow-1 overflow-auto border border-light rounded p-3 mb-2"
+            style={{ height: "400px", backgroundColor: "#f1f1f1" }}
+            ref={chatcontainerRef}
+          >
+            {messages.length > 0 ? (
+              messages.map((msg) => {
+                const isSender = parseInt(msg.sender_id, 10) === parseInt(userId, 10); 
+                return (
+                  
+                  <div
+                    key={msg.message_id}
+                    className={`d-flex mb-2 ${isSender ? "justify-content-end" : "justify-content-start"}`}
+                  >
+                    
+                    <p className="message-date" style={{ fontSize: "0.8rem", color: "#888" }}>
+                      {formatDate(msg.timestamp)}  
+                    </p>
+                    <div
+                      className="message-bubble p-2"
+                      style={{
+                        backgroundColor: isSender ? "#007bff" : "#f0f0f0",
+                        color: isSender ? "#fff" : "#000",
+                        borderRadius: "15px",
+                        maxWidth: "80%",
+                        position: "relative",
+                      }}
+                      onMouseEnter={() => setHoverMessage(msg.message_id)} 
+                      onMouseLeave={() => setHoverMessage(null)}
+                    >
+                     
+                        
+                      
+
+
+                      <Button
+                        style={{
+                          position: "absolute",  
+                          left: isSender ? "0" : "auto",  
+                          right: !isSender ? "0" : "auto", 
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          visibility: hoverMessage === msg.message_id ? "visible" : "hidden", 
+                        }}
+                        onClick={() => handleReplyClick(msg)}  // Handle reply
+                      >
+                        Reply
+                      </Button>
+                   
+                      {msg.prevContent && (
+                        <div className="reply-content" style={{ marginBottom: "10px", padding: "10px", backgroundColor: "#BEB8B8FF", borderRadius: "5px" }}>
+                          <strong>Replying to:</strong>
+                          <p>{msg.rebackName}</p>
+                          <p>{msg.prevContent}</p>
+                        </div>
+                      )}
+                      
+                      <strong>
+                        {isSender ? "You" : msg.sender_name}
+                      </strong>
+                      
+                      <p>{msg.content}</p>
+                      {/* Display Files (if any) */}
+                      {msg.files && msg.files.length > 0 && (
+                        <div className="mt-2">
+                          <ul style={{ listStyleType: "none", paddingLeft: "0" }}>
+                            {msg.files.map((file) => (
+                              <li key={file.file_id}>
+                                {/* File type handling */}
+                                {file.file_name && (
+                                  <>
+                                    {/* If the file is an image */}
+                                    {file.file_name.match(/\.(jpg|jpeg|png|gif)$/i) && (
+                                      <div className="mt-2">
+                                        <img
+                                          src={`${fileUrl}/${file.file_name}`}
+                                          alt="Uploaded file"
+                                          style={{
+                                            maxWidth: "200px",
+                                            maxHeight: "200px",
+                                          }}
+                                        />
+                                      </div>
+                                    )}
+
+                                    {/* If the file is a PDF */}
+                                    {file.file_name.match(/\.(pdf)$/i) && (
+                                      <div className="mt-2">
+                                        <a
+                                          href={file.file_url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                        >
+                                          <strong>View PDF</strong>
+                                        </a>
+                                      </div>
+                                    )}
+
+                                    {/* If the file is an Excel file */}
+                                    {file.file_name.match(/\.(xls|xlsx)$/i) && (
+                                      <div className="mt-2">
+                                        <a
+                                          href={file.file_url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                        >
+                                          <strong>View Excel File</strong>
+                                        </a>
+                                      </div>
+                                    )}
+
+                                    {/* Default fallback for other file types */}
+                                    {!file.file_name.match(/\.(jpg|jpeg|png|gif|pdf|xls|xlsx)$/i) && (
+                                      <div className="mt-2">
+                                        <a
+                                          href={file.file_url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                        >
+                                          <strong>Download File</strong>
+                                        </a>
+                                      </div>
+                                    )}
+                                  </>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div>No messages yet.</div>
+            )}
+          </div>

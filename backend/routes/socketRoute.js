@@ -4,6 +4,12 @@ const Message = require('../models/Message');
 const User = require('../models/User');
 require("dotenv").config();
 const ChatFile = require('../models/ChatFile');
+const { Op } = require('sequelize');
+
+const { Sequelize } = require('sequelize');
+const Group = require('../models/Group');
+const GroupMember = require('../models/GroupMember');
+const GroupMessageRead = require('../models/GroupMessageRead');
 
 
 const path = require('path');
@@ -45,7 +51,7 @@ function websocketRoute(server) {
             // Initialize active conversations for the user
             activeConversations[userId] = activeConversations[userId] || {};
 
-            //user
+            //user message data
             socket.on('sendMessage', async (msg) => {
                 
                 try {
@@ -226,22 +232,17 @@ function websocketRoute(server) {
             // For group message response
             socket.on("groupMessagerespone", async (msg) => {
                 try {
-            
                     const message = await Message.findOne({
                         where: { message_id: msg.message_id },
                     });
-
                     if (!message || message.status === "check") {
-                        console.log("Message already checked, skipping update.");
-                        return; // Early exit if the message is already checked
+                        return; 
                     }
-
                     // Wait for the update to complete
                     const updateResult = await Message.update(
                         { status: "check" },
                         { where: { message_id: msg.message_id } }
                     );
-
                     // If update was successful, retrieve the updated message
                     if (updateResult[0] > 0) {
                         const updatedMessage = await Message.findOne({
@@ -249,8 +250,7 @@ function websocketRoute(server) {
                         });
 
                         if (updatedMessage) {
-                            console.log(updatedMessage);
-                            broadcastGroupMessage(updatedMessage, []); // Send updated message to clients
+                            broadcastGroupMessage(updatedMessage, []);
                         }
                     }
                 } catch (error) {
@@ -313,86 +313,581 @@ function websocketRoute(server) {
             });
 
 
-            // Typing event handler with groupId
-            const typingUsers = {};
-            socket.on('typing', (groupId, userId, userName) => {
-              if (!typingUsers[groupId]) {
-                typingUsers[groupId] = [];
-              }
-              const userExists = typingUsers[groupId].some(user => user.userId === userId);
-              if (!userExists) {
-                typingUsers[groupId].push({ userId, userName });
-              }
-              socket.to(groupId).emit('typing', groupId, typingUsers[groupId]);
-            });
-            // Stop typing event handler
-            socket.on('stopTyping', (groupId, userId, userName) => {
-              if (typingUsers[groupId]) {
-                typingUsers[groupId] = typingUsers[groupId].filter(user => user.userId !== userId);
-                socket.to(groupId).emit('stopTyping', groupId, typingUsers[groupId]);
-              }
-            });
+            
 
             socket.on('joinCheckId', (checkId) => {           
                 socket.join(checkId);
             });
             
 
-        // Listen for 'clearMessages' event from the client
-        socket.on('clearMessages', async (payload) => {
-            const { userId, clearId } = payload;
-            try {
+            // Listen for 'clearMessages' event from the client
+            socket.on('clearMessages', async (payload) => {
+                const { userId, clearId } = payload;
+                try {
+                    const messages = await Message.findAll({
+                        where: {
+                        sender_id: clearId,  
+                        receiver_id: userId,  
+                        status: 'uncheck'    
+                        }
+                    });
+                    if (messages.length === 0) {
+                        socket.emit('clearMessagesResponse', []);
+                        return;
+                    }
+                    const messageIds = messages.map(msg => msg.message_id);
+
+                    const [updatedCount] = await Message.update(
+                        { status: 'check' },
+                        {
+                        where: {
+                            sender_id: clearId,
+                            receiver_id: userId,
+                            status: 'uncheck'
+                        }
+                        }
+                    );
+            
+                    // Find the updated messages to log their new status
+                    const updatedMessages = await Message.findAll({
+                        where: {
+                            message_id: messageIds,
+                        }
+                    });
+                    if (clients[clearId]) {
+                        clients[clearId].emit('senderMessage', updatedMessages);
+                    }
+                    // Optionally send the updated messages to the original socket that requested the clear
+                    socket.emit('clearMessagesResponse', updatedMessages);
+            
+                } catch (error) {
+                    console.error('Error while clearing messages:', error);
+                    socket.emit('clearMessagesResponse', { error: 'An error occurred' });
+                }
+            });
+        
+
+
+
+            //get message
+            // Listen for the 'getMessages' event from the client
+            socket.on('getMessages', async ({ userId, otherUserId }) => {
+                try {
+                // Fetch messages from the database (same logic as before)
                 const messages = await Message.findAll({
                     where: {
-                      sender_id: clearId,  
-                      receiver_id: userId,  
-                      status: 'uncheck'    
-                    }
-                  });
+                    [Op.or]: [
+                        { sender_id: userId, receiver_id: otherUserId },
+                        { sender_id: otherUserId, receiver_id: userId }
+                    ]
+                    },
+                    include: [
+                    { model: User, as: 'sender', attributes: ['user_id', 'username'] },
+                    { model: User, as: 'receiver', attributes: ['user_id', 'username'] }
+                    ],
+                    order: [['message_id', 'ASC']]
+                });
+
+                // If no messages, send an empty array
                 if (messages.length === 0) {
-                    socket.emit('clearMessagesResponse', []);
+                    socket.emit('messages', []);
                     return;
                 }
-                const messageIds = messages.map(msg => msg.message_id);
 
-                const [updatedCount] = await Message.update(
-                    { status: 'check' },
-                    {
-                      where: {
-                        sender_id: clearId,
-                        receiver_id: userId,
-                        status: 'uncheck'
-                      }
-                    }
-                  );
+                // Process files associated with the messages
+                const messagesWithFiles = await Promise.all(
+                    messages.map(async (msg) => {
+                    const files = await ChatFile.findAll({
+                        where: { message_id: msg.message_id }
+                    });
+
+                    return {
+                        message_id: msg.message_id,
+                        sender_id: msg.sender_id,
+                        receiver_id: msg.receiver_id,
+                        sender_name: msg.sender.username,
+                        receiver_name: msg.receiver.username,
+                        content: msg.content,
+                        timestamp: msg.created_at,
+                        prevContent: msg.prevContent,
+                        prevMessageId: msg.prevMessageId,
+                        rebackName: msg.rebackName,
+                        status: msg.status,
+                        files: files.map(file => ({
+                        file_id: file.file_id,
+                        file_name: file.file_name
+                        }))
+                    };
+                    })
+                );
+
+                // Emit the fetched messages to the client
+                socket.emit('messages', messagesWithFiles);
+                } catch (error) {
+                console.error('Error fetching messages:', error);
+                socket.emit('error', 'Internal Server Error');
+                }
+            });
         
-                // Find the updated messages to log their new status
-                const updatedMessages = await Message.findAll({
+            // Listen for the 'getMessageLength' event from the client
+            socket.on('getMessageLength', async (userId) => {
+                try {
+                // Fetch unread messages (status 'uncheck') for the given userId
+                const messages = await Message.findAll({
                     where: {
-                        message_id: messageIds,
+                    receiver_id: userId,  // Messages for this user
+                    status: 'uncheck',    // Unread messages
                     }
                 });
-                if (clients[clearId]) {
-                    clients[clearId].emit('senderMessage', updatedMessages);
+
+                // Count messages by sender and receiver
+                const messageCounts = messages.reduce((acc, message) => {
+                    const sender = message.sender_id;
+                    const receiver = message.receiver_id;
+                    const key = `${sender} to ${receiver}`;
+                    if (!acc[key]) {
+                    acc[key] = 0;
+                    }
+                    acc[key]++;
+
+                    return acc;
+                }, {});
+
+                // Convert the counts into an array format
+                const resultArray = Object.entries(messageCounts).map(([key, value]) => {
+                    const [sender, receiver] = key.split(" to ");
+                    return { [sender]: value };
+                });
+
+                // Emit the result to the client
+                socket.emit('messageLength', resultArray);
+                } catch (error) {
+                console.error("Error fetching message length:", error);
+                socket.emit('error', 'Failed to retrieve message counts');
                 }
-                // Optionally send the updated messages to the original socket that requested the clear
-                socket.emit('clearMessagesResponse', updatedMessages);
-        
-            } catch (error) {
-                console.error('Error while clearing messages:', error);
-                socket.emit('clearMessagesResponse', { error: 'An error occurred' });
-            }
-        });
-        
-    
-        // Function to broadcast active user list
-        function broadcastActiveUsers() {
-            const activeUsers = Object.keys(clients).map(userId => {
-                return { userId, userName: clients[userId].userName };  
             });
-            io.emit('activeUserList', activeUsers);
-            logId = activeUsers;
-        }
+
+
+
+            // Listen for the 'getUserName' event from the client
+            socket.on('getUserName', async (userId) => {
+                try {
+                // Check if userId is provided
+                if (!userId) {
+                    socket.emit('error', 'userId is required');
+                    return;
+                }
+                // Fetch the user by userId
+                const user = await User.findOne({
+                    where: { user_id: userId }
+                });
+
+                if (!user) {
+                    socket.emit('getUserNameResponse', null);  // User not found, return null
+                    return;
+                }
+                // Send the username back to the client
+                socket.emit('getUserNameResponse', user.username);
+                } catch (error) {
+                console.error('Error fetching user name:', error);
+                socket.emit('error', 'Internal server error');
+                }
+            });
+
+
+
+            // Listen for the 'getUserList' event from the client
+            socket.on('getUserList', async (userId) => {
+                try {
+                // Check if userId is provided
+                if (!userId) {
+                    socket.emit('error', 'userId is required');
+                    return;
+                }
+
+                // Fetch all users except the current user
+                const users = await User.findAll({
+                    where: {
+                    user_id: { [Sequelize.Op.ne]: userId } 
+                    }
+                });
+
+                // Send the list of users to the client
+                socket.emit('userListResponse', users);
+                } catch (error) {
+                console.error('Error fetching user list:', error);
+                socket.emit('error', 'Internal server error');
+                }
+            });
+
+
+
+            // Listen for the 'getGroups' event from the client
+            socket.on('getGroups', async (userId) => {
+                try {
+                // Fetch group IDs where the user is a member
+                const groupMembers = await GroupMember.findAll({
+                    where: { user_id: userId },
+                    attributes: ['group_id'],
+                });
+                
+                const groupIds = groupMembers.map(member => member.group_id);
+
+                if (groupIds.length === 0) {
+                    // Emit an empty array if no groups found
+                    socket.emit('groupsResponse', []);
+                    return;
+                }
+
+                // Fetch the groups based on the group IDs
+                const groups = await Group.findAll({
+                    where: { group_id: groupIds },
+                });
+
+                // Emit the groups to the client
+                socket.emit('groupsResponse', groups);
+                } catch (error) {
+                console.error('Error fetching groups:', error);
+                socket.emit('error', 'Internal server error');
+                }
+            });
+
+            // Listen for the 'getGroupMembers' event from the client
+            socket.on('getGroupMembers', async (groupId) => {
+                try {
+                // Fetch group members for the given groupId
+                const groupMembers = await GroupMember.findAll({
+                    where: { group_id: groupId },
+                    attributes: ['user_id'],
+                });
+
+                const userIds = groupMembers.map(member => member.user_id);
+
+                // Fetch user details for each userId
+                const users = await User.findAll({
+                    where: { user_id: userIds },
+                    attributes: ['user_id', 'username'],
+                });
+
+                // Combine user details with the groupId
+                const groupMembersWithGroupId = users.map(user => ({
+                    user_id: user.user_id,
+                    username: user.username,
+                    group_id: groupId,
+                }));
+
+                // Emit the group members list to the client
+                socket.emit('groupMembersResponse', groupMembersWithGroupId);
+                } catch (error) {
+                console.error('Error fetching group members:', error);
+                socket.emit('error', 'Internal server error');
+                }
+            });
+
+
+
+            // Listen for the 'getLastGroupMessage' event from the client
+            socket.on('getLastGroupMessage', async (userId) => {
+                try {
+                if (!userId) {
+                    return socket.emit('error', 'userId is required');
+                }
+
+                // Get all groups the user is part of
+                const groupMembers = await GroupMember.findAll({
+                    where: { user_id: userId }
+                });
+
+                const groupIds = groupMembers.map(group => group.group_id);
+
+                if (groupIds.length === 0) {
+                    return socket.emit('lastGroupMessages', []); // No groups
+                }
+
+                // Get the last message from each group
+                const lastMessagesPromises = groupIds.map(async (groupId) => {
+                    const messages = await Message.findAll({
+                    where: { group_id: groupId },
+                    order: [['created_at', 'DESC']],
+                    limit: 1
+                    });
+
+                    return {
+                    groupId,
+                    content: messages.length > 0 ? messages[0].content : null,
+                    created_at: messages.length > 0 ? messages[0].created_at : null  
+                    };
+                });
+
+                const lastMessages = await Promise.all(lastMessagesPromises);
+                
+                // Emit the last messages to the client
+                socket.emit('lastGroupMessages', lastMessages);
+
+                } catch (error) {
+                console.error('Error fetching last group message:', error);
+                socket.emit('error', 'Internal server error');
+                }
+            });
+
+
+            // Listen for the 'getLastMessagesByUser' event
+            socket.on('getLastMessagesByUser', async (userId, userIdsArray) => {
+                try {
+                if (!userId || !userIdsArray || userIdsArray.length === 0) {
+                    return socket.emit('error', 'userId or userIdsArray is missing');
+                }
+
+                const lastMessages = [];
+                for (const receiverId of userIdsArray) {
+                    const messages = await Message.findAll({
+                    where: {
+                        [Op.or]: [
+                        { sender_id: userId, receiver_id: receiverId },
+                        { sender_id: receiverId, receiver_id: userId }
+                        ]
+                    },
+                    order: [['created_at', 'DESC']],
+                    limit: 1  // Get only the most recent message
+                    });
+
+                    if (messages.length > 0) {
+                    lastMessages.push(messages[0]);  // Add the last message to the array
+                    }
+                }
+
+                // Emit the last messages to the client
+                socket.emit('lastMessagesByUser', lastMessages);
+                } catch (error) {
+                console.error("Error fetching last messages:", error);
+                socket.emit('error', 'Failed to fetch last messages');
+                }
+            });
+
+
+            // Listen for the 'getGroupMessages' event
+            socket.on('getGroupMessages', async (groupId) => {
+                try {
+                // Fetch group messages from the database
+                const messages = await Message.findAll({
+                    where: { group_id: groupId },
+                    include: [
+                    {
+                        model: User,
+                        as: 'sender',
+                        attributes: ['user_id', 'username']
+                    }
+                    ],
+                    order: [['message_id', 'ASC']]
+                });
+
+                // If no messages are found, return an empty array
+                if (messages.length === 0) {
+                    return socket.emit('groupMessages', []);
+                }
+
+                // For each message, fetch the attached files and format the response
+                const messagesWithFiles = await Promise.all(
+                    messages.map(async (msg) => {
+                    const files = await ChatFile.findAll({
+                        where: { message_id: msg.message_id }
+                    });
+
+                    return {
+                        message_id: msg.message_id,
+                        sender_id: msg.sender_id,
+                        sender_name: msg.sender ? msg.sender.username : null,
+                        group_id: msg.group_id,
+                        content: msg.content,
+                        prevContent: msg.prevContent,
+                        prevMessageId: msg.prevMessageId,
+                        rebackName: msg.rebackName,
+                        timestamp: msg.created_at,
+                        status: msg.status,
+                        files: files.map(file => ({
+                        file_id: file.file_id,
+                        file_name: file.file_name
+                        }))
+                    };
+                    })
+                );
+
+                // Emit the group messages to the client
+                socket.emit('groupMessages', messagesWithFiles);
+                } catch (error) {
+                console.error("Error fetching group messages:", error);
+                socket.emit('error', 'Failed to retrieve group messages');
+                }
+            });
+
+
+    
+            // Listen for the 'getGroupMessageRead' event
+            socket.on('getGroupMessageRead', async (userId, groupId) => {
+                try {
+                // Check if the user is a member of the group
+                const groupMember = await GroupMember.findOne({
+                    where: { user_id: userId, group_id: groupId }
+                });
+
+                // If the user is not a member of the group, return an empty response
+                if (!groupMember) {
+                    return socket.emit('groupMessageRead', []);
+                }
+
+                // Fetch the unread messages for the group that are not sent by the user
+                const messages = await Message.findAll({
+                    where: {
+                    group_id: groupId,
+                    status: 'uncheck', // Unread messages
+                    sender_id: { [Op.ne]: userId } // Exclude the messages sent by the user
+                    }
+                });
+
+                // If no unread messages are found, return an empty response
+                if (!messages.length) {
+                    return socket.emit('groupMessageRead', []);
+                }
+
+                // Mark the messages as read for the user
+                const data = await Promise.all(messages.map(async (msg) => {
+                    const readResponse = await GroupMessageRead.upsert({
+                    user_id: userId,
+                    group_id: groupId,
+                    message_id: msg.message_id,
+                    status: 'check', // Mark as read
+                    });
+                    return readResponse;
+                }));
+
+                // Emit the response with the updated message read data
+                socket.emit('groupMessageRead', data);
+                } catch (error) {
+                console.error('Error marking messages as read:', error);
+                socket.emit('error', 'Failed to mark messages as read');
+                }
+            });
+
+
+            // Listen for the 'getGroupMessageLength' event
+            socket.on('getGroupMessageLength', async (userId) => {
+                try {
+                // Find all groups the user is a member of
+                const groups = await GroupMember.findAll({
+                    where: { user_id: userId }
+                });
+
+                // If no groups are found, return an empty response
+                if (!groups.length) {
+                    return socket.emit('groupMessageLength', []);
+                }
+
+                const groupIds = groups.map(group => group.group_id);
+
+                // Find all unread messages for these groups
+                const messages = await Message.findAll({
+                    where: {
+                    group_id: groupIds,
+                    status: 'uncheck',
+                    sender_id: { [Op.ne]: userId }  // Exclude the messages sent by the user
+                    }
+                });
+
+                if (!messages.length) {
+                    return socket.emit('groupMessageLength', []);
+                }
+
+                // Find the read messages for the user in these groups
+                const readMessages = await GroupMessageRead.findAll({
+                    where: {
+                    group_id: groupIds,
+                    user_id: userId,
+                    status: 'check'  // Messages that are marked as read
+                    }
+                });
+
+                // Create a Set of read message IDs for quick lookup
+                const readMessageIds = new Set(readMessages.map(read => read.message_id));
+
+                // Determine which messages are unread and group them by group_id
+                const messageDetails = messages.map(message => {
+                    const isRead = readMessageIds.has(message.message_id);
+                    return {
+                    group_id: message.group_id,
+                    sender_id: message.sender_id,
+                    unread: isRead ? 0 : 1  // Mark as unread if the message is not in the read list
+                    };
+                });
+
+                // Group messages by group_id and calculate the total unread count for each group
+                const groupedMessageDetails = messageDetails.reduce((acc, msg) => {
+                    const group = acc.find(g => g.group_id === msg.group_id);
+                    if (group) {
+                    group.unread += msg.unread;
+                    } else {
+                    acc.push({
+                        group_id: msg.group_id,
+                        unread: msg.unread,
+                    });
+                    }
+                    return acc;
+                }, []);
+
+                // Emit the result back to the client
+                socket.emit('groupMessageLength', groupedMessageDetails);
+                } catch (error) {
+                console.error('Error fetching messages length:', error);
+                socket.emit('error', 'Failed to retrieve message length');
+                }
+            });
+
+
+            // Listen for typing events
+            socket.on('typing', (data) => {
+                const { userId, groupId, typing, type, receiverId, username } = data;
+            
+                console.log("typing++++", userId, groupId, typing, type, receiverId, username);
+            
+                if (type === 'group') {
+                    // Emit to the group
+                    socket.to(groupId).emit('userTyping', { 
+                        userId, 
+                        groupId, 
+                        typing, 
+                        type: 'group',
+                        username
+                    });
+                } else if (type === 'user') {
+                    console.log("userTyping", userId, receiverId, typing, type, username);
+                    // Check if the receiver's socket is connected
+                    const receiverSocket = clients[receiverId];
+                    if (receiverSocket) {
+                        
+                        receiverSocket.emit('userTyping', { 
+                            userId, 
+                            receiverId, 
+                            typing, 
+                            type: 'user', 
+                            username
+                        });
+                    } else {
+                        console.log(`Receiver ${receiverId} is not connected.`);
+                       
+                    }
+                }
+            });
+            
+
+
+            
+            // Function to broadcast active user list
+            function broadcastActiveUsers() {
+                const activeUsers = Object.keys(clients).map(userId => {
+                    return { userId, userName: clients[userId].userName };  
+                });
+                io.emit('activeUserList', activeUsers);
+                logId = activeUsers;
+            }
 
 
 

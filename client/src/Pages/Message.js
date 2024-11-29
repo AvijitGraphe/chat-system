@@ -60,31 +60,73 @@ export default function Message() {
   //chat contaienr ref..
   const chatcontainerRef = useRef(null)
 
+//socket connection with the main server connections build
+useEffect(() => {
+  const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
+  const socketUrl = `${protocol}${window.location.hostname}${
+    window.location.port ? `:${window.location.port}` : ""
+  }`;
+  const newSocket = io(`${config.apiUrl}`, {
+    query: { token: accessToken },
+    transports: ["websocket"],
+    reconnection: true,
+    reconnectionAttempts: 5,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    auth: { token: accessToken },
+  });
+  // Set the socket instance
+  setSocket(newSocket);
+  newSocket.on("connect", () => {});
+  newSocket.on("connected", (data) => {});
+  return () => {
+    newSocket.disconnect();
+  };
+}, [accessToken]);
+
+
+
+
 useEffect(() =>{
   if(chatcontainerRef.current){
     chatcontainerRef.current.scrollTop = chatcontainerRef.current.scrollHeight;
   }
 }, [messages])
 
+//Show all effect data
+useEffect(() => {
+
+  if(socket){
+    fetchUserList();
+    handleShowGroups(userId);
+    // handleShowLength(userId);
+    // handelGroupMessageLnegth(userId);
+    handelGroupMessageLength(userId);
+    // fetchLastMessage(userId);
+    handleLastGroupMessage(userId);
+    getUserName(userId);
+  }
+}, [socket, userId]);
+
+
   //show the file url
   const fileUrl = "http://localhost:5000/routes/uploads";
 
 // Fetch user list from the API
-const fetchUserList = async () => {
-  try {
-    const response = await axios.get(
-      `${config.apiUrl}/api/getUser?userId=${userId}`,
-      {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      }
-    );
-    setUserlist(response.data);
-    fetchLastMessage(response.data);
-    getUserName(userId);
-  } catch (error) {
-    console.error("Error fetching user list", error);
-  }
+const fetchUserList = () => {
+  socket.emit('getUserList', userId);
+  socket.on('userListResponse', (users) => {
+    setUserlist(users); 
+    fetchLastMessage(users); 
+  });
+
+  // Handle errors
+  socket.on('error', (error) => {
+    console.error('Error fetching user list:', error);
+  });
 };
+
+
 
 const handleUserClick = (user) => {
   setIsShow(true);
@@ -112,19 +154,20 @@ const handleUserClick = (user) => {
 // Function to clear store message based on clearId
 const clearStoreMessage = async (clearId) => {
   try {
-    if(socket){
+    if (socket) {
       const payload = {
         userId,
         clearId
       };
+      socket.off('clearMessagesResponse');
       socket.emit('clearMessages', payload);
       socket.on('clearMessagesResponse', (response) => {
-          if (response.error) {
-              console.error("Error clearing messages:", response.error);
-          } else {
-              fetchMessages(userId, clearId);
-              handleShowLength(userId); 
-          }
+        if (response.error) {
+          console.error("Error clearing messages:", response.error);
+        } else {
+          fetchMessages(userId, clearId);
+          handleShowLength(userId); 
+        }
       });
     }
   } catch (error) {
@@ -132,56 +175,38 @@ const clearStoreMessage = async (clearId) => {
   }
 };
 
-//get username 
-const getUserName = async (userId) => {
-  try {
-    const response = await axios.get(`${config.apiUrl}/api/getUserName`, {
-      params: { userId },
-    });
-    setUserName(response.data);
-  } catch (error) {
-    console.error("Error fetching user name:", error);
-  }
-};
 
 
-// Fetch chat messages from the server
-const fetchMessages = async (userId, receiverId) => {
-  try {
-    const response = await axios.get(`${config.apiUrl}/api/getMessages`, {
-      params: { userId, otherUserId: receiverId },
-    });
-    setMessages(response.data);
-    setReplyingTo([]);
-  } catch (error) {
-    console.error("Error fetching messages", error);
-  }
-};
 
-
-//socket connection with the server
-useEffect(() => {
-  const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
-  const socketUrl = `${protocol}${window.location.hostname}${
-    window.location.port ? `:${window.location.port}` : ""
-  }`;
-  const newSocket = io(`${config.apiUrl}`, {
-    query: { token: accessToken },
-    transports: ["websocket"],
-    reconnection: true,
-    reconnectionAttempts: 5,
-    reconnectionDelay: 1000,
-    reconnectionDelayMax: 5000,
-    auth: { token: accessToken },
+//get username
+const getUserName = (userId) => {
+  socket.emit('getUserName', userId);
+  socket.on('getUserNameResponse', (username) => {
+    if (username) {
+      setUserName(username);
+    } else {
+      console.error('User not found');
+    }
   });
-  // Set the socket instance
-  setSocket(newSocket);
-  newSocket.on("connect", () => {});
-  newSocket.on("connected", (data) => {});
-  return () => {
-    newSocket.disconnect();
-  };
-}, [accessToken]);
+}
+
+
+//get message data
+const fetchMessages = (userId, receiverId) => {
+  socket.emit('getMessages', { userId, otherUserId: receiverId });
+  socket.on('messages', (messages) => {
+    setMessages(messages);
+    setReplyingTo([]); 
+});
+
+  // Handle errors
+  socket.on('error', (error) => {
+    console.error("Error fetching messages:", error);
+  });
+};
+
+
+
 
 useEffect(() => {
   if (socket) {     
@@ -227,12 +252,10 @@ useEffect(() => {
         if (parseInt(newMessage.sender_id, 10) !== parseInt(checkId, 10)) {
               handleShowLength(userId);
         }
-      //length of the store message
       if (
         newMessage &&
         parseInt(newMessage.sender_id, 10) === parseInt(checkId, 10)
       ) 
-      //show of the message in the chat
       {
         if (newMessage.receiver_id === parseInt(userId, 10)) {
           if(newMessage.receiver_id){
@@ -267,7 +290,6 @@ useEffect(() => {
       setTypingUsers([]);
     };
     const handleActiveUserList = (activeUsers) => {
-      console.log("activeUsers", activeUsers);
       setActiveUsers(activeUsers);
     };
 
@@ -313,26 +335,21 @@ useEffect(() => {
 
 
 
+  const handleShowLength = (userId) => {
+    socket.emit('getMessageLength', userId);
+    socket.on('messageLength', (messageCounts) => {
+      setStoreMessage(messageCounts); 
+    });
+  
+    // Handle any errors from the server
+    socket.on('error', (error) => {
+      console.error('Error fetching message length:', error);
+    });
+  };
 
-//Show all effect data
-useEffect(() => {
-  fetchUserList();
-  handleShowGroups(userId);
-  handleShowLength(userId);
-  handelGroupMessageLnegth(userId);
-  // fetchLastMessage(userId);
-  handleLastGroupMessage(userId);
-}, [userId]);
 
 
 
-//Show the length of the message
-const handleShowLength = async (userId) => {  
-  const response = await axios.get(`${config.apiUrl}/api/getMessageLength`, {
-    params: { userId },
-  });        
-  setStoreMessage(response.data); 
-};
 
 //Show all groups list
 const handleGroupCreate = async () => {
@@ -367,20 +384,23 @@ const handleCreateGroup = async () => {
   handleShowGroups(userId);
 };
 
-//show all groups list
-const handleShowGroups = async (userId) => {
-  try {
-    const response = await axios.get(`${config.apiUrl}/api/getGroups`, {
-      params: { userId: userId },
-    });
-    setGroups(response.data);
-  } catch (error) {
-    console.error("Error fetching groups", error);
-  }
-};
 
+
+const handleShowGroups = (userId) => {
+
+  socket.emit('getGroups', userId);
+  socket.on('groupsResponse', (groups) => {
+    // Update the state with the received groups
+    setGroups(groups);  
+  });
+
+  // Handle errors
+  socket.on('error', (error) => {
+    console.error('Error fetching groups:', error);
+  });
+};
 // Handle group data send 
-const handleGroupClick = async (group) => {
+const handleGroupClick = (group) => {
   try {
     setIsShow(true);
     setGetGroupId(group.group_id);
@@ -395,18 +415,20 @@ const handleGroupClick = async (group) => {
     setReplyingTo([]);
     setCheckId(null);
     setInputValue("");
-    const response = await axios.get(`${config.apiUrl}/api/getGroupMembers`, {
-      params: { groupId: group.group_id },
-    });
-    if (response.status === 200) {
-      setSelectedGroup(response.data);
+    socket.emit('getGroupMembers', group.group_id);
+    socket.on('groupMembersResponse', (groupMembers) => {
+      setSelectedGroup(groupMembers);
       handleJoinGroup(group.group_id);
       handelGroupMessageRead(userId, group.group_id);
-    } else {
-      console.error("Failed to fetch group members", response);
-    }
+    });
+
+    // Handle errors
+    socket.on('error', (error) => {
+      console.error("Error fetching group members:", error);
+    });
+
   } catch (error) {
-    console.error("Error fetching group members", error);
+    console.error("Error handling group click:", error);
   }
 };
 
@@ -460,7 +482,6 @@ const handleLeaveGroup = (groupId) => {
   if (socket) {
     socket.emit("leaveGroup", groupId);
   }
-  // Update local state after the user leaves
   setPrevGroupId(null);  
 };
 
@@ -482,7 +503,6 @@ useEffect(() => {
       if (newMessage.group_id === currentGroupId) {
         handelGroupMessageRead(userId, newMessage.group_id);
         handleLastGroupMessage(userId);
-            // socket.emit("groupMessagerespone", newMessage);
         setMessages((prevMessages) => {
           if (Array.isArray(newMessage)) {
             if (newMessage.length === 0) {
@@ -518,7 +538,8 @@ useEffect(() => {
     // Handle notifications for groups user;
     const handleReceiveGroupNotification = (notification) => {
       if (notification.group_id !== currentGroupId) {
-        handelGroupMessageLnegth(userId)
+        // handelGroupMessageLnegth(userId)
+        handelGroupMessageLength(userId);
         handleLastGroupMessage(userId);
       }
     };
@@ -534,45 +555,61 @@ useEffect(() => {
   
 
 
-//get unread message length
-const handelGroupMessageLnegth = async (userId) => {
-const response = await axios.get(`${config.apiUrl}/api/getGroupMessageLength`, {
-  params: { userId },
-});
-setGroupMessageStore(response.data);
-}
+
+
+// Function to fetch unread message length for the user
+const handelGroupMessageLength = async (userId) => {
+  try {
+    socket.emit('getGroupMessageLength', userId);
+    socket.on('groupMessageLength', (data) => {
+      setGroupMessageStore(data);  
+    });
+
+    // Handle error events
+    socket.on('error', (error) => {
+      console.error('Error fetching unread message length:', error);
+    });
+  } catch (error) {
+    console.error('Error in handelGroupMessageLength:', error);
+  }
+};
 
 
   
-//get unread message and read message
+
 const handelGroupMessageRead = async (userId, groupId) => {
-  const groupIdAsNumber = isNaN(Number(groupId)) ? groupId : Number(groupId);
   try {
-    await axios.post(`${config.apiUrl}/api/getGroupMessageRead`, {
-      userId,
-      groupId: groupIdAsNumber  
+    // Emit the 'getGroupMessageRead' event to the server
+    socket.emit('getGroupMessageRead', userId, groupId);
+    socket.on('groupMessageRead', (data) => {
+      handelGroupMessageLength(userId);
     });
-    handelGroupMessageLnegth(userId);
+
+    // Handle error events
+    socket.on('error', (error) => {
+      console.error('Error marking messages as read:', error);
+    });
   } catch (error) {
-    console.error('Error marking messages as read:', error);
+    console.error('Error in handelGroupMessageRead:', error);
   }
-
-}
-
+};
 
 
-//get group messge get all the messages in the group
+
+// Handle group message fetching
 const handleGetGroupMessages = async (groupId) => {
   try {
-    const response = await axios.get(
-      `${config.apiUrl}/api/getGroupMessages`,
-      {
-        params: { groupId },
-      }
-    );
-    setMessages(response.data);
+    socket.emit('getGroupMessages', groupId);
+    socket.on('groupMessages', (messages) => {
+      setMessages(messages);  
+    });
+
+    // Handle error events
+    socket.on('error', (error) => {
+      console.error("Error fetching group messages:", error);
+    });
   } catch (error) {
-    console.error("Error fetching group messages", error);
+    console.error("Error in handleGetGroupMessages:", error);
   }
 };
 
@@ -626,8 +663,94 @@ const handleSendGroupMessage = async (e) => {
 // Handle typing indicator
 let typingTimeout; 
 const handleInputChange = (e) => {
-  setInputValue(e.target.value);
+  setInputValue(e.target.value);  
+
+  const isTyping = e.target.value ? true : false; 
+
+  if (isTyping) {
+    if (getGroupId) {
+      console.log("groupId", getGroupId)  
+      // If we are in a group chat, use groupId
+      socket.emit('typing', {
+        userId: userId,         
+        groupId: getGroupId,       
+        typing: true,           
+        type: 'group', 
+        username: userName         
+      });
+    } else if (receiverId) {
+      console.log("receiverId", receiverId)
+      // If it's a direct message, use receiverId
+      socket.emit('typing', {
+        userId: userId,        
+        receiverId: receiverId, 
+        typing: true,           
+        type: 'user',  
+        username: userName
+      });
+    }
+  } else {
+    // Stop typing, emit with typing: false
+    if (getGroupId) {
+      socket.emit('typing', {
+        userId: userId,
+        groupId: getGroupId,
+        typing: false,          
+        type: 'group',
+        username: userName
+      });
+    } else if (receiverId) {
+      socket.emit('typing', {
+        userId: userId,
+        receiverId: receiverId,
+        typing: false,          
+        type: 'user',
+        username: userName
+      });
+    }
+  }
 };
+
+
+const [isTyping, setIsTyping] = useState(false);
+const [typingUser, setTypingUser] = useState(null);
+// Listen for typing event
+useEffect(() => {
+  if (socket) {
+    socket.on('userTyping', (data) => {
+      if (data.type === 'group' && data.groupId === currentGroupId) {
+        setTypingUser(data.username);
+        setIsTyping(data.typing);
+      } else if (data.type === 'user' && data.receiverId === parseInt(userId, 10)) {
+        console.log("checkId:", checkId, "data.userId:", data.userId);
+        
+        if (parseInt(data.userId, 10) === parseInt(checkId, 10)) {
+          console.log("Typing user:", data.username);
+
+          setTypingUser(data.username);
+          setIsTyping(data.typing);
+        } else {
+          console.log("User IDs do not match. Ignoring typing:", data);
+        }
+      }
+
+      // Hide typing indicator after 3 seconds of inactivity
+      if (data.typing) {
+        setTimeout(() => {
+          setIsTyping(false);
+        }, 3000);
+      }
+    });
+  }
+
+  return () => {
+    // Clean up the listener when component unmounts or socket disconnects
+    if (socket) {
+      socket.off('userTyping');
+    }
+  };
+}, [checkId, socket]); // Run when checkId or socket changes
+
 
   
 //reply to a message
@@ -673,29 +796,38 @@ const timeTracker = (timestamp) => {
 const fetchLastMessage = async (data) => {
   try {
     const userIds = data.map(user => user.user_id);
-    const response = await axios.get(`${config.apiUrl}/api/getLastMessagesByUser`, {
-      params: {
-        userId,
-        user_ids: userIds
-      }
+    socket.emit('getLastMessagesByUser', userId, userIds);
+    socket.on('lastMessagesByUser', (lastMessages) => {
+      setLastMessages(lastMessages);
     });
-    setLastMessages(response.data);
+
+    // Handle error events
+    socket.on('error', (error) => {
+      console.error("Error fetching last messages:", error);
+    });
   } catch (error) {
-    console.error("Error fetching last message:", error);
+    console.error("Error in fetchLastMessage:", error);
   }
 };
 
 //fetch the group message
-const handleLastGroupMessage = async (userId) => {
+const handleLastGroupMessage = (userId) => {
   try {
-    const response = await axios.get(`${config.apiUrl}/api/getLastGroupMessage`, {
-      params: { userId },
+    socket.emit('getLastGroupMessage', userId);
+    socket.on('lastGroupMessages', (lastMessages) => {
+      setLastGroupMessage(lastMessages);
     });
-    setLastGroupMessage(response.data);
+    // Handle errors
+    socket.on('error', (error) => {
+      console.error("Error fetching last group message:", error);
+    });
+
   } catch (error) {
-    console.error("Error fetching last group message:", error);
+    console.error("Error in handleLastGroupMessage:", error);
   }
 };
+
+
 
 
   return (
@@ -934,7 +1066,7 @@ const handleLastGroupMessage = async (userId) => {
               )}
 
               {/* Typing indicator */}
-              {typingUsers.length > 0 && (
+              {/* {typingUsers.length > 0 && (
                 <div className="mb-2">
                   <ul>
                     {typingUsers.map((user, index) => (
@@ -944,7 +1076,9 @@ const handleLastGroupMessage = async (userId) => {
                     ))}
                   </ul>
                 </div>
-              )}
+              )} */}
+
+{isTyping && typingUser && <div>{typingUser} is typing...</div>}
 
               {/* Message Display Section */}
               <div
