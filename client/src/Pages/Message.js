@@ -417,12 +417,15 @@ const handleGroupClick = (group) => {
     setReplyingTo([]);
     setCheckId(null);
     setInputValue("");
+
     socket.emit('getGroupMembers', group.group_id);
+
     socket.on('groupMembersResponse', (groupMembers) => {
       setSelectedGroup(groupMembers);
       handleJoinGroup(group.group_id);
       handelGroupMessageRead(userId, group.group_id);
     });
+
 
     // Handle errors
     socket.on('error', (error) => {
@@ -501,11 +504,18 @@ const handleCheckId = (checkId) => {
 //Group Message Recive all the user
 useEffect(() => {
   if (socket) {
+
+
     const handleReceiveGroupMessage = (newMessage) => {
       if (newMessage.group_id === currentGroupId) {
+        
         handelGroupMessageRead(userId, newMessage.group_id);
         handleLastGroupMessage(userId);
 
+        groupMessgeread(newMessage, userId);
+
+       
+       
         setMessages((prevMessages) => {
           if (Array.isArray(newMessage)) {
             if (newMessage.length === 0) {
@@ -535,11 +545,31 @@ useEffect(() => {
         });
 
 
+
+        
+        console.log(newMessage,userId)
+
+
+
       } else {
         console.log(`Message (group_id: ${newMessage.group_id}):`, newMessage);
       }
     };
     
+
+
+     // Emit the read receipt
+    const groupMessgeread = (newMessage, userId)=>{
+      // socket.emit('getGroupMessageReadResponse', {
+      //   messageId: newMessage.message_id,
+      //   groupId: newMessage.group_id,
+      //   userId: userId,
+      // }
+
+      // );
+    }
+
+
     // Handle notifications for groups user;
     const handleReceiveGroupNotification = (notification) => {
       if (notification.group_id !== currentGroupId) {
@@ -548,6 +578,7 @@ useEffect(() => {
         handleLastGroupMessage(userId);
       }
     };
+
     socket.on("receiveGroupMessage", handleReceiveGroupMessage);
     socket.on("receiveGroupNotification", handleReceiveGroupNotification);
     return () => {
@@ -555,7 +586,7 @@ useEffect(() => {
       socket.off("receiveGroupNotification", handleReceiveGroupNotification);
     };
   }
-}, [socket, currentGroupId]);
+}, [socket, currentGroupId, userId]);
 
   
 
@@ -940,25 +971,33 @@ const handleLastGroupMessage = (userId) => {
 
                               {/* Last message for group */}
                               {item.type === 'group' && Array.isArray(lastGroupMessage) && lastGroupMessage.length > 0 && (
-                                lastGroupMessage
-                                  .filter(message => message.groupId === item.group_id)
-                                  .map((message, index) => {
-                                    const words = message.content.split(' ');  
-                                    const first5Words = words.slice(0, 5).join(' ');  // First 5 words
-                                    const displayText = words.length > 5 ? `${first5Words}...` : first5Words;  
+                                  lastGroupMessage
+                                    .filter(message => message.groupId === item.group_id)
+                                    .map((message, index) => {
+                                      // Check if message.content is null or undefined, and default to an empty string
+                                      const content = message.content || '';  // If content is null or undefined, use an empty string
+                                      const words = content.split(' ');  
+                                      const first5Words = words.slice(0, 5).join(' ');  // First 5 words
+                                      const displayText = words.length > 5 ? `${first5Words}...` : first5Words;  
 
-                                    // Assuming message.created_at is a valid date string
-                                    const formattedDate = timeTracker(new Date(message.created_at)); 
+                                      // Conditionally handle message.created_at
+                                      let formattedDate = '';
+                                      if (message.created_at) {
+                                        const createdAtDate = new Date(message.created_at);
+                                        if (createdAtDate.toString() !== 'Invalid Date') {
+                                          formattedDate = timeTracker(createdAtDate);  // Only format if valid date
+                                        }
+                                      }
 
-                                    return (
-                                      <div key={index} className="d-flex justify-content-between  gap-4">
-                                        <p>{displayText}</p>
-                                        <small>{formattedDate}</small>
-                                      </div>
-                                    );
-                                    
-                                  })
-                              )}
+                                      return (
+                                        <div key={index} className="d-flex justify-content-between gap-4">
+                                          <p>{displayText}</p>
+                                          {formattedDate && <small>{formattedDate}</small>}  {/* Only display date if valid */}
+                                        </div>
+                                      );
+                                    })
+                                )}
+
 
                             <p className="mb-0 text-end" style={{ marginLeft: '10px' }}>
                               {/* Conditional rendering of message count */}
@@ -1079,6 +1118,7 @@ const handleLastGroupMessage = (userId) => {
                 >
                   {messages.length > 0 ? (
                     messages.map((msg, index) => {
+                      console.log("msg.group_status", msg.group_status)
                       const isSender = parseInt(msg.sender_id, 10) === parseInt(userId, 10); 
                       
                       // Format the date
@@ -1150,20 +1190,22 @@ const handleLastGroupMessage = (userId) => {
                             <p>{timeTracker(new Date(msg.timestamp))}</p>
 
                           
-                          {/* messge confirem */}
+                          {/* messge confirem  group_status */}
                           <p>
-                              { msg.status === "check" ? (
-                                <>
-                                  <i className="pi pi-check" style={{ color: 'black' }}></i>
-                                  <i className="pi pi-check" style={{ color: 'black' }}></i>
-                                </>
-                              ) : (
-                                <i className="pi pi-check" style={{ color: 'black' }}></i>
-                              )}
+                            {/* Check if either msg.status or msg.group_status is 'check' */}
+                            { (msg.status === "check" || (msg.group_status && msg.group_status === "check")) ? (
+                              <>
+                                <i className="pi pi-check" style={{ color: 'black' }} aria-label="Checked"></i>
+                                <i className="pi pi-check" style={{ color: 'black' }} aria-label="Checked"></i>
+                              </>
+                            ) : (
+                              <i className="pi pi-check" style={{ color: 'black' }} aria-label="Not checked"></i>
+                            )}
                           </p>
 
+
                           <p>
-                            {}
+                        
                           </p>
 
                             {/* Display Files (if any) */}

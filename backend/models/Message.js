@@ -67,6 +67,11 @@ const Message = sequelize.define("Message", {
     defaultValue: 'uncheck', 
     allowNull: false,
   },
+  group_status: {
+    type: DataTypes.ENUM('check', 'uncheck'), 
+    defaultValue: 'uncheck', 
+    allowNull: false,
+  },
   created_at: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW

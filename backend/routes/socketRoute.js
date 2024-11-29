@@ -146,6 +146,14 @@ function websocketRoute(server) {
                         socket.emit('error', { message: 'Sender, content, and group are required' });
                         return;
                     }
+                    const groupMembers = await GroupMember.findAll({
+                        where: { group_id: msg.groupId }
+                    });
+                    const membersWithoutSender = groupMembers.filter(member => member.dataValues.user_id !== parseInt(msg.senderId));
+                    const userIdsWithoutSender = membersWithoutSender.map(member => member.dataValues.user_id);
+                    const activeUsers = Object.keys(clients).map(userId => parseInt(userId));
+                    const isAnyMemberActive = userIdsWithoutSender.some(userId => activeUsers.includes(userId));
+                    const messageStatus = isAnyMemberActive ? "check" : "uncheck";
                     const newMessage = await Message.create({
                         sender_id: msg.senderId,
                         group_id: msg.groupId,
@@ -155,6 +163,7 @@ function websocketRoute(server) {
                         sender_name: msg.sender_name,
                         rebackName: msg.rebackName,
                         is_read: false,
+                        group_status: messageStatus,
                     });
                     let filePaths = [];
                     if (msg.files && msg.files.length > 0) {
@@ -172,9 +181,6 @@ function websocketRoute(server) {
                         }
                     }
                     broadcastGroupMessage(newMessage, filePaths);
-                    
-                   
-
                 } catch (err) {
                     console.error('Error saving group message:', err);
                     socket.emit('error', { message: 'Group message send failed' });
@@ -194,7 +200,8 @@ function websocketRoute(server) {
                     timestamp: message.created_at,
                     files: files || [],
                     created_at: message.created_at,
-                    status: message.status
+                    status: message.status,
+                    group_status: message.group_status
                 };
                 const groupUsers = groups[message.group_id] || [];
                 const activeUsers = Object.keys(clients);
@@ -230,10 +237,10 @@ function websocketRoute(server) {
 
 
             // For group message response
-            socket.on("groupMessagerespone", async (msg) => {
+            socket.on("getGroupMessageReadResponse", async (msg) => {
                 try {
                     const message = await Message.findOne({
-                        where: { message_id: msg.message_id },
+                        where: { message_id: messageId },
                     });
                     if (!message || message.status === "check") {
                         return; 
@@ -241,7 +248,7 @@ function websocketRoute(server) {
                     // Wait for the update to complete
                     const updateResult = await Message.update(
                         { status: "check" },
-                        { where: { message_id: msg.message_id } }
+                        { where: { message_id: messageId } }
                     );
                     // If update was successful, retrieve the updated message
                     if (updateResult[0] > 0) {
@@ -845,9 +852,6 @@ function websocketRoute(server) {
             // Listen for typing events
             socket.on('typing', (data) => {
                 const { userId, groupId, typing, type, receiverId, username } = data;
-            
-                console.log("typing++++", userId, groupId, typing, type, receiverId, username);
-            
                 if (type === 'group') {
                     // Emit to the group
                     socket.to(groupId).emit('userTyping', { 
@@ -858,7 +862,6 @@ function websocketRoute(server) {
                         username
                     });
                 } else if (type === 'user') {
-                    console.log("userTyping", userId, receiverId, typing, type, username);
                     // Check if the receiver's socket is connected
                     const receiverSocket = clients[receiverId];
                     if (receiverSocket) {
