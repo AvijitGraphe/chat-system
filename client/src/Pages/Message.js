@@ -959,16 +959,18 @@ const handleLastGroupMessage = (userId) => {
                                 lastMessages
                                   .filter(message => message.sender_id === item.user_id || message.receiver_id === item.user_id)
                                   .map((message, index) => {
-                                    const words = message.content.split(' ');  
-                                    const first5Words = words.slice(0, 5).join(' ');  // First 5 words
-                                    const displayText = words.length > 5 ? `${first5Words}...` : first5Words;  // Append "..." if more than 5 words
-
+   
                                     // Assuming message.created_at is a valid date string
                                     const formattedDate = timeTracker(new Date(message.created_at)); 
 
+                                    const content = message.content || '';  
+                                    console.log("content", content.length);
+  
+                                    const show = content.length > 5;
+                                    const truncatedContent = show ? content.slice(0, 5) + '...' : content;
                                     return (
                                       <div key={index} className="d-flex justify-content-between  gap-4">
-                                        <p>{displayText}</p>
+                                        <p>{truncatedContent}</p>
                                         <small>{formattedDate}</small>
                                       </div>
                                     );
@@ -978,32 +980,26 @@ const handleLastGroupMessage = (userId) => {
 
                               {/* Last message for group */}
                               {item.type === 'group' && Array.isArray(lastGroupMessage) && lastGroupMessage.length > 0 && (
-                                  lastGroupMessage
-                                    .filter(message => message.groupId === item.group_id)
-                                    .map((message, index) => {
-                                      // Check if message.content is null or undefined, and default to an empty string
-                                      const content = message.content || '';  // If content is null or undefined, use an empty string
-                                      const words = content.split(' ');  
-                                      const first5Words = words.slice(0, 5).join(' ');  // First 5 words
-                                      const displayText = words.length > 5 ? `${first5Words}...` : first5Words;  
+                              lastGroupMessage
+                                .filter(message => message.groupId === item.group_id)
+                                .map((message, index) => {
+                                  const content = message.content || '';  
+                                  const show = content.length > 5;
+                                  // Show only the first 5 characters followed by ellipsis if content length is greater than 5
+                                  const truncatedContent = show ? content.slice(0, 5) + '...' : content;
 
-                                      // Conditionally handle message.created_at
-                                      let formattedDate = '';
-                                      if (message.created_at) {
-                                        const createdAtDate = new Date(message.created_at);
-                                        if (createdAtDate.toString() !== 'Invalid Date') {
-                                          formattedDate = timeTracker(createdAtDate);  // Only format if valid date
-                                        }
-                                      }
+                                  return (
+                                    <div key={index}>
+                                      <p>{truncatedContent}</p>
+                                    </div>
+                                  );
+                                })
+                            )}
 
-                                      return (
-                                        <div key={index} className="d-flex justify-content-between gap-4">
-                                          <p>{displayText}</p>
-                                          {formattedDate && <small>{formattedDate}</small>}  {/* Only display date if valid */}
-                                        </div>
-                                      );
-                                    })
-                                )}
+
+
+
+
 
 
                             <p className="mb-0 text-end" style={{ marginLeft: '10px' }}>
