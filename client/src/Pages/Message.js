@@ -611,14 +611,11 @@ const handelGroupMessageLength = async (userId) => {
 const handelGroupMessageRead = async (userId, groupId, messageId) => {
   try {
     const logArray =  groupMessageStore.filter(msg => msg.group_id === groupId)
-
     socket.emit('getGroupMessageRead', userId, groupId, messageId, logArray);
     socket.once('groupMessageRead', (data) => {
       handelGroupMessageLength(userId);
       handleGetGroupMessages(groupId);
     });
-
-
     // Handle error events
     socket.on('error', (error) => {
       console.error('Error marking messages as read:', error);
@@ -629,21 +626,6 @@ const handelGroupMessageRead = async (userId, groupId, messageId) => {
 };
 
 
-//handel group read confirm
-// const handelGroupMessageReadConfirm = async (groupId) => {
-//     //group message read confirem
-//     const data = groupMessageStore.map(msg=> msg.unreadMessages)
-//     if(data){
-//       const payload ={
-//         groupId: groupId,
-//         messageIds: data.flat()
-//       }
-//       socket.emit("groupMessageVerify", payload)
-//     }else{
-//       console.log("no data");
-//     }
-
-// }
 
 
 

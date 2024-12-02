@@ -908,59 +908,59 @@ function websocketRoute(server) {
 
             const groupMessageVerify = async (groupId, messageIds, logArray) => {
                 try {
-                    console.log("groupId:", groupId, "messageIds:", messageIds, "logArraymessageids:", logArray);
-            
-                    // Ensure messageIds is always an array (if it's not an array or is a single ID, wrap it into an array)
+                    // console.log("groupId:", groupId, "messageIds:", messageIds, "logArraymessageids:", logArray);
                     if (!Array.isArray(messageIds)) {
-                        messageIds = [messageIds]; // If it's not an array, make it one
+                        messageIds = [messageIds]; 
                     }
-            
-                    // Get the user IDs for the group
                     const groupMembers = await GroupMember.findAll({
                         where: { group_id: groupId },
                     });
                     const userIds = groupMembers.map(member => member.user_id);
-                    console.log("userIds:", userIds);
-            
-                    const results = [];
-            
-                    // Iterate over the messageIds array (whether it has one or more elements)
+                    // Get the sender ID for the message
+                    const senderId = await Message.findAll({
+                        where: { message_id: messageIds },
+                    });
+                    const senderIds = senderId.map(ids => ids.sender_id);
+                    let allChecked = true;  
                     for (const msgId of messageIds) {
-                        console.log(msgId);
                         const readStatuses = await GroupMessageRead.findAll({
                             where: {
                                 group_id: groupId,
                                 message_id: msgId,
-                                status: 'check',  
+                                status: 'check',
                             }
                         });
-            
-                        console.log("readStatuses++++", readStatuses);
-            
-                        // You can modify the result as per your need
-                        results.push({
-                            messageId: msgId,
-                            readStatuses: readStatuses
-                        });
-                    }
-            
-                    // Here, you can process logArray as needed, for example:
-                    for (const log of logArray) {
-                        console.log(`Group ID: ${log.group_id}, Unread: ${log.unread}, Unread Messages: ${log.unreadMessages}`);
-                        // You can also perform operations like comparing the unread messages to the messageIds
-                        if (log.group_id === groupId) {
-                            console.log(`Matching group found with unread messages: ${log.unreadMessages}`);
+                        const checkedUserIds = readStatuses.map(status => status.user_id);
+                        const uncheckedUsers = userIds.filter(userId => 
+                            !checkedUserIds.includes(userId) && !senderIds.includes(userId)
+                        );
+                        if (uncheckedUsers.length > 0) {
+                            allChecked = false; 
                         }
                     }
-            
-                    // You can also return or use the results in any further way you need:
-                    console.log("Results:", results);
+                    if (allChecked) {
+                        const verify = await Message.update(
+                            { status: 'check' }, 
+                            { where: { message_id: messageIds } }
+                        );
+                        if (verify[0] > 0) { 
+                            const updatedMessages = await Message.findOne({
+                                where: { message_id: messageIds }
+                            });
+                            socket.emit('groupMessageVerifyRespone', messageIds);
+                        }
+                    } else {
+                        console.log("Not all users have checked the message.");
+                    }
             
                 } catch (error) {
                     console.error('Error verifying group message status:', error);
                     socket.emit('error', 'Failed to verify group message status');
                 }
             };
+            
+            
+            
             
             
             
