@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext, useRef } from "react";
-import { Container, Row, Col, Form, ListGroup } from "react-bootstrap";
+import { Container, Row, Col, Form, ListGroup, Collapse } from "react-bootstrap";
 import { AuthContext } from "../Context/AuthProvider";
 import axios from "axios";
 import config from "../config";
@@ -58,6 +58,7 @@ export default function Message() {
   const [isTyping, setIsTyping] = useState(false);
   const [typingUser, setTypingUser] = useState(null);
   const [typingTrack, setTypingTrack] = useState(false);
+  const [isCheck, setIsCheck] = useState(false);
 
 
 
@@ -432,6 +433,9 @@ const handleGroupClick = (group) => {
       handelGroupMessageRead(userId, group.group_id);
     });
 
+    
+
+
 
 
     // Handle errors
@@ -513,10 +517,20 @@ const handleCheckId = (checkId) => {
 //Group Message Recive all the user
 useEffect(() => {
   if (socket) {
+
+
+
     const handleReceiveGroupMessage = (newMessage) => {
       if (newMessage.group_id === currentGroupId) {
-        handelGroupMessageRead(userId, newMessage.group_id);
+
+
+        
+        handelGroupMessageRead(userId, newMessage.group_id, newMessage.message_id);
+
+
         handleLastGroupMessage(userId);
+
+
         setMessages((prevMessages) => {
           if (Array.isArray(newMessage)) {
             if (newMessage.length === 0) {
@@ -544,10 +558,13 @@ useEffect(() => {
             }
           }
         });
+
       } else {
         console.log(`Message (group_id: ${newMessage.group_id}):`, newMessage);
       }
     };
+
+
     // Handle notifications for groups user;
     const handleReceiveGroupNotification = (notification) => {
       if (notification.group_id !== currentGroupId) {
@@ -556,6 +573,8 @@ useEffect(() => {
         handleLastGroupMessage(userId);
       }
     };
+
+
     socket.on("receiveGroupMessage", handleReceiveGroupMessage);
     socket.on("receiveGroupNotification", handleReceiveGroupNotification);
     return () => {
@@ -589,15 +608,16 @@ const handelGroupMessageLength = async (userId) => {
 
   
 // Handle group message read
-const handelGroupMessageRead = async (userId, groupId) => {
+const handelGroupMessageRead = async (userId, groupId, messageId) => {
   try {
-    // Emit the 'getGroupMessageRead' event to the server
-    socket.off('groupMessageRead');
-    socket.emit('getGroupMessageRead', userId, groupId);
-    socket.on('groupMessageRead', (data) => {
+    const logArray =  groupMessageStore.filter(msg => msg.group_id === groupId)
+
+    socket.emit('getGroupMessageRead', userId, groupId, messageId, logArray);
+    socket.once('groupMessageRead', (data) => {
       handelGroupMessageLength(userId);
       handleGetGroupMessages(groupId);
     });
+
 
     // Handle error events
     socket.on('error', (error) => {
@@ -607,6 +627,23 @@ const handelGroupMessageRead = async (userId, groupId) => {
     console.error('Error in handelGroupMessageRead:', error);
   }
 };
+
+
+//handel group read confirm
+// const handelGroupMessageReadConfirm = async (groupId) => {
+//     //group message read confirem
+//     const data = groupMessageStore.map(msg=> msg.unreadMessages)
+//     if(data){
+//       const payload ={
+//         groupId: groupId,
+//         messageIds: data.flat()
+//       }
+//       socket.emit("groupMessageVerify", payload)
+//     }else{
+//       console.log("no data");
+//     }
+
+// }
 
 
 
@@ -627,6 +664,7 @@ const handleGetGroupMessages = async (groupId) => {
     console.error("Error in handleGetGroupMessages:", error);
   }
 };
+
 
 
 
@@ -761,7 +799,7 @@ useEffect(() => {
       socket.off('userTyping');
     }
   };
-}, [checkId, socket, currentGroupId]); // Run when checkId or socket changes
+}, [checkId, socket, currentGroupId]); 
 
 
   
@@ -1043,6 +1081,7 @@ const handleLastGroupMessage = (userId) => {
                   <strong style={{textTransform:"capitalize"}}>{receiverName}</strong>
                 </div>
               )}
+
               {showGroupName && getGroupId && (
                 <div className="mb-2 d-flex align-items-center">
                   <Avatar 
@@ -1173,7 +1212,7 @@ const handleLastGroupMessage = (userId) => {
                           {/* messge confirem  group_status */}
 
                           <p>
-                            { (msg.status === "check" || (msg.group_status && msg.group_status === "check")) || (msg.logStatus && msg.logStatus === "check") ? (
+                            { msg.status === "check"  ? (
                               <>
                                 <i className="pi pi-check" style={{ color: 'black' }} aria-label="Checked"></i>
                                 <i className="pi pi-check" style={{ color: 'black' }} aria-label="Checked"></i>
