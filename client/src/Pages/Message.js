@@ -523,7 +523,7 @@ useEffect(() => {
     const handleReceiveGroupMessage = (newMessage) => {
       if (newMessage.group_id === currentGroupId) {
 
-
+         console.log("newMessage",newMessage); 
         
         handelGroupMessageRead(userId, newMessage.group_id, newMessage.message_id);
 
@@ -610,22 +610,51 @@ const handelGroupMessageLength = async (userId) => {
 // Handle group message read
 const handelGroupMessageRead = async (userId, groupId, messageId) => {
   try {
-    const logArray =  groupMessageStore.filter(msg => msg.group_id === groupId)
+    const logArray = groupMessageStore.filter(msg => msg.group_id === groupId);
     socket.emit('getGroupMessageRead', userId, groupId, messageId, logArray);
+
+    // Listen for the 'groupMessageRead' event
     socket.once('groupMessageRead', (data) => {
+      console.log("data:", data);
       handelGroupMessageLength(userId);
       handleGetGroupMessages(groupId);
     });
+
+
+
+    
+
     // Handle error events
     socket.on('error', (error) => {
       console.error('Error marking messages as read:', error);
     });
+
+    // Clean up socket listeners after use
+    return () => {
+  
+      socket.off('error');
+    };
   } catch (error) {
     console.error('Error in handelGroupMessageRead:', error);
   }
 };
 
 
+useEffect(() => {
+  if (socket) {
+    const groupMessageVerifyRespone = (updatedMessageIds) => {
+      console.log("Received updated message(s):", updatedMessageIds); // Log the updated message
+    };
+
+    // Register the listener for the 'groupMessageVerifyRespone' event
+    socket.on('groupMessageVerifyRespone', groupMessageVerifyRespone);
+
+    // Cleanup the listener when the component unmounts
+    return () => {
+      socket.off('groupMessageVerifyRespone');
+    };
+  }
+}, [socket]);
 
 
 
