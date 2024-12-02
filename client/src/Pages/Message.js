@@ -186,6 +186,7 @@ const clearStoreMessage = async (clearId) => {
 
 //get username
 const getUserName = (userId) => {
+  socket.off('getUserNameResponse');
   socket.emit('getUserName', userId);
   socket.on('getUserNameResponse', (username) => {
     if (username) {
@@ -199,6 +200,7 @@ const getUserName = (userId) => {
 
 //get message data
 const fetchMessages = (userId, receiverId) => {
+  socket.off('messages');
   socket.emit('getMessages', { userId, otherUserId: receiverId });
   socket.on('messages', (messages) => {
     setMessages(messages);
@@ -569,6 +571,7 @@ useEffect(() => {
 // Function to fetch unread message length for the user
 const handelGroupMessageLength = async (userId) => {
   try {
+    socket.off('groupMessageLength');
     socket.emit('getGroupMessageLength', userId);
     socket.on('groupMessageLength', (data) => {
       setGroupMessageStore(data);  
@@ -589,6 +592,7 @@ const handelGroupMessageLength = async (userId) => {
 const handelGroupMessageRead = async (userId, groupId) => {
   try {
     // Emit the 'getGroupMessageRead' event to the server
+    socket.off('groupMessageRead');
     socket.emit('getGroupMessageRead', userId, groupId);
     socket.on('groupMessageRead', (data) => {
       handelGroupMessageLength(userId);
@@ -609,12 +613,13 @@ const handelGroupMessageRead = async (userId, groupId) => {
 // Handle group message fetching
 const handleGetGroupMessages = async (groupId) => {
   try {
+    socket.off('groupMessages');
+    socket.off('error'); 
     socket.emit('getGroupMessages', groupId);
     socket.on('groupMessages', (messages) => {
       setMessages(messages);  
     });
 
-    // Handle error events
     socket.on('error', (error) => {
       console.error("Error fetching group messages:", error);
     });
@@ -622,6 +627,9 @@ const handleGetGroupMessages = async (groupId) => {
     console.error("Error in handleGetGroupMessages:", error);
   }
 };
+
+
+
 
 // Handle file selection
 const handleFileChange = (e) => {
@@ -817,6 +825,7 @@ const fetchLastMessage = async (data) => {
 //fetch the group message
 const handleLastGroupMessage = (userId) => {
   try {
+    socket.off('lastGroupMessages');
     socket.emit('getLastGroupMessage', userId);
     socket.on('lastGroupMessages', (lastMessages) => {
       setLastGroupMessage(lastMessages);

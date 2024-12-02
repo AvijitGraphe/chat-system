@@ -163,7 +163,7 @@ function websocketRoute(server) {
                         sender_name: msg.sender_name,
                         rebackName: msg.rebackName,
                         is_read: false,
-                        group_status: messageStatus,
+                        group_status: 'uncheck'
                     });
                     let filePaths = [];
                     if (msg.files && msg.files.length > 0) {
@@ -901,6 +901,7 @@ function websocketRoute(server) {
                 }
             });
 
+            
             
             // Function to broadcast active user list
             function broadcastActiveUsers() {
