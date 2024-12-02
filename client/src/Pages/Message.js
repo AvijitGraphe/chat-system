@@ -132,26 +132,27 @@ const fetchUserList = () => {
 };
 
 
-
+//user handler event
 const handleUserClick = (user) => {
   setIsShow(true);
   setGetGroupId(null);
   setShowGroupName("");
   setSelectedGroup([]);
+
   // Set user-specific data
   setReceiverId(user.user_id);
   setReceiverName(user.username);
   setInputValue("");
- 
   setShow(true);
   setCheckId(user.user_id);
   setGetUserIdActive(user.user_id);
-  handleCheckId(user.user_id);
-  clearStoreMessage(user.user_id);
-
+  clearStoreMessage(user.user_id); 
   handleLeaveGroup(prevGroupId);
 
+
+  fetchMessages(userId, user.user_id);
 };
+
 
 
 
@@ -171,6 +172,7 @@ const clearStoreMessage = async (clearId) => {
           console.error("Error clearing messages:", response.error);
         } else {
           if(!typingTrack){
+
             fetchMessages(userId, clearId);
           }
           handleShowLength(userId); 
@@ -201,9 +203,14 @@ const getUserName = (userId) => {
 
 //get message data
 const fetchMessages = (userId, receiverId) => {
+
+  console.log("fetching messages", userId, receiverId);
+
+  setMessages([]);
   socket.off('messages');
-  socket.emit('getMessages', { userId, otherUserId: receiverId });
+  socket.emit('getMessages', { userId, receiverId });
   socket.on('messages', (messages) => {
+    console.log("messages", messages);
     setMessages(messages);
     setReplyingTo([]); 
 });
@@ -215,7 +222,7 @@ const fetchMessages = (userId, receiverId) => {
 };
 
 
-
+//all messge data get
 
 useEffect(() => {
   if (socket) {     
@@ -250,10 +257,6 @@ useEffect(() => {
         }
       });
     };
-    
-  
-  
-  
     //message reciver with used id and not the current user.
       const handleReceiveMessage = (newMessage) => {
         fetchLastMessage(userlist);
@@ -391,7 +394,6 @@ const handleCreateGroup = async () => {
 
 
 const handleShowGroups = (userId) => {
-
   socket.emit('getGroups', userId);
   socket.on('groupsResponse', (groups) => {
     // Update the state with the received groups
@@ -422,22 +424,12 @@ const handleGroupClick = (group) => {
     setReplyingTo([]);
     setCheckId(null);
     setInputValue("");
-
-
-
     socket.emit('getGroupMembers', group.group_id);
-
     socket.on('groupMembersResponse', (groupMembers) => {
       setSelectedGroup(groupMembers);
       handleJoinGroup(group.group_id);
-      handelGroupMessageRead(userId, group.group_id);
     });
-
-    
-
-
-
-
+    handelGroupMessageRead(userId, group.group_id);
     // Handle errors
     socket.on('error', (error) => {
       console.error("Error fetching group members:", error);
@@ -517,20 +509,10 @@ const handleCheckId = (checkId) => {
 //Group Message Recive all the user
 useEffect(() => {
   if (socket) {
-
-
-
     const handleReceiveGroupMessage = (newMessage) => {
       if (newMessage.group_id === currentGroupId) {
-
-         console.log("newMessage",newMessage); 
-        
         handelGroupMessageRead(userId, newMessage.group_id, newMessage.message_id);
-
-
         handleLastGroupMessage(userId);
-
-
         setMessages((prevMessages) => {
           if (Array.isArray(newMessage)) {
             if (newMessage.length === 0) {
@@ -558,23 +540,17 @@ useEffect(() => {
             }
           }
         });
-
       } else {
         console.log(`Message (group_id: ${newMessage.group_id}):`, newMessage);
       }
     };
-
-
     // Handle notifications for groups user;
     const handleReceiveGroupNotification = (notification) => {
       if (notification.group_id !== currentGroupId) {
-        // handelGroupMessageLnegth(userId)
         handelGroupMessageLength(userId);
         handleLastGroupMessage(userId);
       }
     };
-
-
     socket.on("receiveGroupMessage", handleReceiveGroupMessage);
     socket.on("receiveGroupNotification", handleReceiveGroupNotification);
     return () => {
@@ -606,24 +582,19 @@ const handelGroupMessageLength = async (userId) => {
 };
 
 
+
   
 // Handle group message read
 const handelGroupMessageRead = async (userId, groupId, messageId) => {
+
   try {
     const logArray = groupMessageStore.filter(msg => msg.group_id === groupId);
     socket.emit('getGroupMessageRead', userId, groupId, messageId, logArray);
-
     // Listen for the 'groupMessageRead' event
-    socket.once('groupMessageRead', (data) => {
-      console.log("data:", data);
+    socket.on('groupMessageRead', (data) => {
       handelGroupMessageLength(userId);
       handleGetGroupMessages(groupId);
     });
-
-
-
-    
-
     // Handle error events
     socket.on('error', (error) => {
       console.error('Error marking messages as read:', error);
@@ -631,7 +602,7 @@ const handelGroupMessageRead = async (userId, groupId, messageId) => {
 
     // Clean up socket listeners after use
     return () => {
-  
+      socket.off('groupMessageRead');
       socket.off('error');
     };
   } catch (error) {
@@ -640,44 +611,53 @@ const handelGroupMessageRead = async (userId, groupId, messageId) => {
 };
 
 
-useEffect(() => {
-  if (socket) {
-    const groupMessageVerifyRespone = (updatedMessageIds) => {
-      console.log("Received updated message(s):", updatedMessageIds); // Log the updated message
-    };
-
-    // Register the listener for the 'groupMessageVerifyRespone' event
-    socket.on('groupMessageVerifyRespone', groupMessageVerifyRespone);
-
-    // Cleanup the listener when the component unmounts
-    return () => {
-      socket.off('groupMessageVerifyRespone');
-    };
-  }
-}, [socket]);
 
 
-
-// Handle group message fetching
+//get group messages
+let lastFetchedGroupId = null; 
+let isFetching = false;  
 const handleGetGroupMessages = async (groupId) => {
+  if (isFetching) {
+    return;
+  }
+  if (lastFetchedGroupId === groupId) {
+    return;  
+  }
+  lastFetchedGroupId = groupId;
+  isFetching = true;
   try {
-    socket.off('groupMessages');
-    socket.off('error'); 
+    setMessages([]);
     socket.emit('getGroupMessages', groupId);
-    socket.on('groupMessages', (messages) => {
+    socket.once('groupMessages', (messages) => {
+      console.log("Received messages:", messages);
       setMessages(messages);  
+      isFetching = false;  
     });
-
-    socket.on('error', (error) => {
+    socket.once('error', (error) => {
       console.error("Error fetching group messages:", error);
+      isFetching = false;  
     });
   } catch (error) {
     console.error("Error in handleGetGroupMessages:", error);
+    isFetching = false;
   }
 };
 
 
 
+
+
+useEffect(() => {
+  if (socket) {
+    const groupMessageVerifyRespone = (updatedMessageIds) => {
+      console.log("Received updated message(s):", updatedMessageIds); 
+    };
+    socket.on('groupMessageVerifyRespone', groupMessageVerifyRespone);
+    return () => {
+      socket.off('groupMessageVerifyRespone');
+    };
+  }
+}, [socket]);
 
 
 // Handle file selection

@@ -149,11 +149,7 @@ function websocketRoute(server) {
                     const groupMembers = await GroupMember.findAll({
                         where: { group_id: msg.groupId }
                     });
-                    const membersWithoutSender = groupMembers.filter(member => member.dataValues.user_id !== parseInt(msg.senderId));
-                    const userIdsWithoutSender = membersWithoutSender.map(member => member.dataValues.user_id);
-                    const activeUsers = Object.keys(clients).map(userId => parseInt(userId));
-                    const isAnyMemberActive = userIdsWithoutSender.some(userId => activeUsers.includes(userId));
-                    const messageStatus = isAnyMemberActive ? "check" : "uncheck";
+
                     const newMessage = await Message.create({
                         sender_id: msg.senderId,
                         group_id: msg.groupId,
@@ -163,7 +159,6 @@ function websocketRoute(server) {
                         sender_name: msg.sender_name,
                         rebackName: msg.rebackName,
                         is_read: false,
-                        group_status: 'uncheck'
                     });
                     let filePaths = [];
                     if (msg.files && msg.files.length > 0) {
@@ -205,6 +200,9 @@ function websocketRoute(server) {
                 const groupUsers = groups[message.group_id] || [];
                 const activeUsers = Object.keys(clients);
                 // Broadcast message to group members
+
+
+
                 groupUsers.forEach(userId => {
                     if (clients[userId]) {
                         clients[userId].emit('receiveGroupMessage', messageData);
@@ -338,14 +336,17 @@ function websocketRoute(server) {
 
             //get message
             // Listen for the 'getMessages' event from the client
-            socket.on('getMessages', async ({ userId, otherUserId }) => {
+            socket.on('getMessages', async ({ userId, receiverId }) => {
+
+                console.log(userId, receiverId);
+                
                 try {
                 // Fetch messages from the database (same logic as before)
                 const messages = await Message.findAll({
                     where: {
                     [Op.or]: [
-                        { sender_id: userId, receiver_id: otherUserId },
-                        { sender_id: otherUserId, receiver_id: userId }
+                        { sender_id: userId, receiver_id: receiverId },
+                        { sender_id: receiverId, receiver_id: userId }
                     ]
                     },
                     include: [
@@ -760,63 +761,56 @@ function websocketRoute(server) {
             
             const groupMessageVerify = async (groupId, messageIds, logArray) => {
                 try {
-                  // Ensure messageIds is an array
-                  if (!Array.isArray(messageIds)) {
-                    messageIds = [messageIds]; // Convert single messageId into an array
-                  }
-              
-                  // Fetch the group members
-                  const groupMembers = await GroupMember.findAll({ where: { group_id: groupId } });
-                  const userIds = groupMembers.map(member => member.user_id);
-              
-                  // Fetch the sender IDs for the messages
-                  const senderId = await Message.findAll({ where: { message_id: messageIds } });
-                  const senderIds = senderId.map(ids => ids.sender_id);
-              
-                  let allChecked = true;
-              
-                  for (const msgId of messageIds) {
-                    // Check the read statuses for the message
-                    const readStatuses = await GroupMessageRead.findAll({
-                      where: { group_id: groupId, message_id: msgId, status: 'check' },
-                    });
-              
-                    const checkedUserIds = readStatuses.map(status => status.user_id);
-                    const uncheckedUsers = userIds.filter(userId => 
-                      !checkedUserIds.includes(userId) && !senderIds.includes(userId)
-                    );
-              
-                    if (uncheckedUsers.length > 0) {
-                      allChecked = false; // Set to false if any user hasn't checked
+                    if (!messageIds || messageIds.length === 0) {
+                        messageIds = logArray.flatMap(log => log.unreadMessages);
                     }
-                  }
-              
-                  if (allChecked) {
-                    // Update message status to 'check' if all users have read it
-                    const verify = await Message.update(
-                      { status: 'check' }, 
-                      { where: { message_id: messageIds } }
-                    );
-              
-                    if (verify[0] > 0) {
-                      // Fetch the updated message(s) after update
-                      const updatedMessage = await Message.findOne({
-                        where: { message_id: messageIds }
-                      });
-              
-                      console.log("Updated message(s):", updatedMessage);
-              
-                      // Emit the response with the updated message ID
-                      socket.emit('groupMessageVerifyRespone', updatedMessage);
+                    if (!Array.isArray(messageIds)) {
+                        messageIds = [messageIds];
                     }
-                  } else {
-                    console.log("Not all users have checked the message.");
-                  }
+                    const groupMembers = await GroupMember.findAll({ where: { group_id: groupId } });
+                    const userIds = groupMembers.map(member => member.user_id);
+                    const senderId = await Message.findAll({ where: { message_id: messageIds } });
+                    const senderIds = senderId.map(ids => ids.sender_id);
+                    let allChecked = true;
+                    for (const msgId of messageIds) {
+                        const readStatuses = await GroupMessageRead.findAll({
+                            where: { group_id: groupId, message_id: msgId, status: 'check' },
+                        });
+                        const checkedUserIds = readStatuses.map(status => status.user_id);
+                        const uncheckedUsers = userIds.filter(userId => 
+                            !checkedUserIds.includes(userId) && !senderIds.includes(userId)
+                        );
+            
+                        if (uncheckedUsers.length > 0) {
+                            allChecked = false; 
+                        }
+                    }
+                    if (allChecked) {
+                        const verify = await Message.update(
+                            { status: 'check' }, 
+                            { where: { message_id: messageIds } }
+                        );
+                        if (verify[0] > 0) {
+                            const updatedMessage = await Message.findOne({
+                                where: { message_id: messageIds }
+                            });
+                            const groupUsers = groups[updatedMessage.group_id] || [];
+                            groupUsers.forEach(userId => {
+                                if (clients[userId]) {
+                                    clients[userId].emit('receiveGroupMessage', updatedMessage);
+                                } else {
+                                    console.log(`No client found for user ${userId}`);
+                                }
+                            });
+                        }
+                    } else {
+                        console.log("Not all users have checked the message.");
+                    }
                 } catch (error) {
-                  console.error('Error verifying group message status:', error);
-                  socket.emit('error', 'Failed to verify group message status');
+                    console.error('Error verifying group message status:', error);
+                    socket.emit('error', 'Failed to verify group message status');
                 }
-              };
+            };
             
 
 
@@ -840,7 +834,7 @@ function websocketRoute(server) {
                         where: {
                             group_id: groupIds,
                             status: 'uncheck',
-                            sender_id: { [Op.ne]: userId }  // Exclude the messages sent by the user
+                            sender_id: { [Op.ne]: userId }  
                         }
                     });
             
@@ -853,43 +847,36 @@ function websocketRoute(server) {
                         where: {
                             group_id: groupIds,
                             user_id: userId,
-                            status: 'check'  // Messages that are marked as read
+                            status: 'check'  
                         }
                     });
-            
-                    // Create a Set of read message IDs for quick lookup
                     const readMessageIds = new Set(readMessages.map(read => read.message_id));
-            
                     // Determine which messages are unread and group them by group_id
                     const messageDetails = messages.map(message => {
                         const isRead = readMessageIds.has(message.message_id);
                         return {
                             group_id: message.group_id,
                             sender_id: message.sender_id,
-                            message_id: message.message_id,  // Include message_id in the result
-                            unread: isRead ? 0 : 1  // Mark as unread if the message is not in the read list
+                            message_id: message.message_id, 
+                            unread: isRead ? 0 : 1 
                         };
                     });
-            
-                    // Group messages by group_id and calculate the total unread count for each group
                     const groupedMessageDetails = messageDetails.reduce((acc, msg) => {
                         const group = acc.find(g => g.group_id === msg.group_id);
                         if (group) {
                             group.unread += msg.unread;
                             if (msg.unread === 1) {
-                                group.unreadMessages.push(msg.message_id);  // Collect unread message_ids
+                                group.unreadMessages.push(msg.message_id);  
                             }
                         } else {
                             acc.push({
                                 group_id: msg.group_id,
                                 unread: msg.unread,
-                                unreadMessages: msg.unread === 1 ? [msg.message_id] : []  // Initialize unread messages array
+                                unreadMessages: msg.unread === 1 ? [msg.message_id] : []  
                             });
                         }
                         return acc;
                     }, []);
-            
-                    // Emit the result back to the client
                     socket.emit('groupMessageLength', groupedMessageDetails);
                 } catch (error) {
                     console.error('Error fetching messages length:', error);
