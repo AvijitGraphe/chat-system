@@ -928,7 +928,7 @@ const handleDownload = async (fileName) => {
             </div>
            
            {/* Display Users and Groups in One ListGroup */}
-           <div>
+            <div>
                 <ListGroup
                   variant="flush"
                   className="overflow-auto"
@@ -1091,6 +1091,7 @@ const handleDownload = async (fileName) => {
                 </div>
               )}
 
+              {/* Display Group Name  and List of Users */}
               {showGroupName && getGroupId && (
                 <div className="mb-2 d-flex align-items-center">
                   <Avatar 
@@ -1135,30 +1136,25 @@ const handleDownload = async (fileName) => {
                 </div>
               )}
 
-
               {/* Typing indicator */}
-              {isTyping && typingUser && <div>{typingUser} is typing...</div>}
-
+              <p>{isTyping && typingUser && <div className="text-green">{typingUser} is typing...</div>}</p>
               {/* Message Display Section */}
               <div
-                  className="flex-grow-1 overflow-auto border border-light rounded p-3 mb-2"
-                  style={{ height: "400px", backgroundColor: "#f1f1f1" }}
-                  ref={chatcontainerRef}
-                >
-                  {messages.length > 0 ? (
+                className="flex-grow-1 overflow-auto border border-light rounded p-3 mb-2"
+                style={{ height: "400px", backgroundColor: "#f1f1f1" }}
+                ref={chatcontainerRef}
+              >
+                    {messages.length > 0 ? (
                     messages.map((msg, index) => {
                       const isSender = parseInt(msg.sender_id, 10) === parseInt(userId, 10); 
-                      
                       // Format the date
                       const formattedDate = formatDate(msg.timestamp);
-
                       const showDate = index === 0 || formattedDate !== formatDate(messages[index - 1].timestamp);
-                      
                       return (
                         <div
-                          key={msg.message_id}
-                          className={`d-flex mb-2 ${isSender ? "justify-content-end" : "justify-content-start"}`}
-                        >
+                            key={msg.message_id}
+                            className={`d-flex mb-2 ${isSender ? "justify-content-end" : "justify-content-start"}`}
+                          >
                           {showDate && (
                             <div
                               style={{
@@ -1181,9 +1177,9 @@ const handleDownload = async (fileName) => {
                               maxWidth: "80%",
                               position: "relative",
                             }}
-                            onMouseEnter={() => setHoverMessage(msg.message_id)} 
-                            onMouseLeave={() => setHoverMessage(null)}
-                          >
+                              onMouseEnter={() => setHoverMessage(msg.message_id)} 
+                              onMouseLeave={() => setHoverMessage(null)}
+                            >
                             {/* Displaying the Button */}
                             <Button
                               style={{
@@ -1212,15 +1208,12 @@ const handleDownload = async (fileName) => {
                             <strong>
                               {isSender ? "You" : msg.sender_name}
                             </strong>
-
                             {/* Message Content */}
                             <p>{msg.content}</p>
                             <p>{timeTracker(new Date(msg.timestamp))}</p>
 
-                          
-                          {/* messge confirem  group_status */}
-
-                          <p>
+                            {/* messge confirem  group_status */}
+                            <p>
                             { msg.status === "check"  ? (
                               <>
                                 <i className="pi pi-check" style={{ color: 'black' }} aria-label="Checked"></i>
@@ -1229,68 +1222,65 @@ const handleDownload = async (fileName) => {
                             ) : (
                               <i className="pi pi-check" style={{ color: 'black' }} aria-label="Not checked"></i>
                             )}
-                          </p>
+                            </p>
 
-                          <p>
-                        
-                          </p>
+                            <p>                      
+                            </p>
+                            {/* Display Files (if any) */}
+                            {msg.files && msg.files.length > 0 && (
+                                <div className="mt-2">
+                                  <ul style={{ listStyleType: "none", paddingLeft: "0" }}>
+                                    {msg.files.map((file) => (
+                                      <li
+                                        key={file.file_id}
+                                        style={{
+                                          display: "flex",
+                                          alignItems: "center",
+                                          marginBottom: "10px",
+                                        }}
+                                      >
+                                        {file.file_name && (
+                                          <>
+                                            {/* If the file is an image, display it */}
+                                            {file.file_name.match(/\.(jpg|jpeg|png|gif)$/i) && (
+                                              <img
+                                                src={`${fileUrl}/${file.file_name}`}
+                                                alt="Uploaded file"
+                                                style={{
+                                                  maxWidth: "100px",
+                                                  maxHeight: "100px",
+                                                  marginRight: "10px",
+                                                }}
+                                              />
+                                            )}
 
-                          {/* Display Files (if any) */}
-                          {msg.files && msg.files.length > 0 && (
-                              <div className="mt-2">
-                                <ul style={{ listStyleType: "none", paddingLeft: "0" }}>
-                                  {msg.files.map((file) => (
-                                    <li
-                                      key={file.file_id}
-                                      style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        marginBottom: "10px",
-                                      }}
-                                    >
-                                      {file.file_name && (
-                                        <>
-                                          {/* If the file is an image, display it */}
-                                          {file.file_name.match(/\.(jpg|jpeg|png|gif)$/i) && (
-                                            <img
-                                              src={`${fileUrl}/${file.file_name}`}
-                                              alt="Uploaded file"
+                                            {/* Display file name */}
+                                            <span style={{ flexGrow: 1, marginLeft: "10px" }}>
+                                              {/* {file.file_name} */}
+                                            </span>
+
+                                            {/* Download button */}
+                                            <button
+                                              onClick={() => handleDownload(file.file_name)}
                                               style={{
-                                                maxWidth: "100px",
-                                                maxHeight: "100px",
-                                                marginRight: "10px",
+                                                backgroundColor: "#007bff",
+                                                color: "#fff",
+                                                border: "none",
+                                                padding: "5px 10px",
+                                                borderRadius: "5px",
+                                                cursor: "pointer",
+                                                fontSize: "14px",
                                               }}
-                                            />
-                                          )}
-
-                                          {/* Display file name */}
-                                          <span style={{ flexGrow: 1, marginLeft: "10px" }}>
-                                            {/* {file.file_name} */}
-                                          </span>
-
-                                          {/* Download button */}
-                                          <button
-                                            onClick={() => handleDownload(file.file_name)}
-                                            style={{
-                                              backgroundColor: "#007bff",
-                                              color: "#fff",
-                                              border: "none",
-                                              padding: "5px 10px",
-                                              borderRadius: "5px",
-                                              cursor: "pointer",
-                                              fontSize: "14px",
-                                            }}
-                                          >
-                                            Download
-                                          </button>
-                                        </>
-                                      )}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
+                                            >
+                                              Download
+                                            </button>
+                                          </>
+                                        )}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
                             )}
-
                           </div>
                         </div>
                       );
@@ -1302,14 +1292,15 @@ const handleDownload = async (fileName) => {
 
               {isShow && (
                 <Form
-                  onSubmit={
-                    receiverName && !getGroupId
-                      ? handleSendMessage
-                      : handleSendGroupMessage
-                  }
-                  className="bg-light"
-                >
+                    onSubmit={
+                      receiverName && !getGroupId
+                        ? handleSendMessage
+                        : handleSendGroupMessage
+                    }
+                    className="bg-light"
+                  >
                   <Row className="d-flex align-items-center gap-3">
+
                     {/* File input with attachment icon */}
                     <Col xs="auto">
                       <label
@@ -1329,10 +1320,8 @@ const handleDownload = async (fileName) => {
                     </Col>
 
                     {/* Message input */}
-
                     <Col>
-
-                    {replyingTo && replyingTo.sender_name && replyingTo.content && (
+                      {replyingTo && replyingTo.sender_name && replyingTo.content && (
                         <div className="replying-to">
                           <div className="d-flex justify-content-between align-items-center">
                               <strong>Replying to:</strong> 
@@ -1380,8 +1369,6 @@ const handleDownload = async (fileName) => {
                               )}
                         </div>
                       )}
-
-                      
                       <Form.Control
                         type="text"
                         placeholder="Type a message..."
@@ -1390,14 +1377,10 @@ const handleDownload = async (fileName) => {
                         onChange={handleInputChange}
                         required
                       />
-
-
-
                     </Col>
                   </Row>
 
                   {/* Display selected file preview */}
-
                   {file && file.length > 0 && (
                     <Row className="mt-3">
                       {file.map((f, index) => (
@@ -1467,7 +1450,6 @@ const handleDownload = async (fileName) => {
                   </Button>
                 </Form>
               )}
-
           </Col>
         </Row>
         {/* Create Group Dialog */}
