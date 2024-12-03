@@ -337,9 +337,6 @@ function websocketRoute(server) {
             //get message
             // Listen for the 'getMessages' event from the client
             socket.on('getMessages', async ({ userId, receiverId }) => {
-
-                console.log(userId, receiverId);
-                
                 try {
                 // Fetch messages from the database (same logic as before)
                 const messages = await Message.findAll({
@@ -912,12 +909,9 @@ function websocketRoute(server) {
                         });
                     } else {
                         console.log(`Receiver ${receiverId} is not connected.`);
-                       
                     }
                 }
             });
-            
-  
             // Function to broadcast active user list
             function broadcastActiveUsers() {
                 const activeUsers = Object.keys(clients).map(userId => {
@@ -926,10 +920,6 @@ function websocketRoute(server) {
                 io.emit('activeUserList', activeUsers);
                 logId = activeUsers;
             }
-
-
-
-
         } catch (err) {
             console.error('Error verifying token: ', err);
             socket.disconnect();

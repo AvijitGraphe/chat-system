@@ -203,14 +203,10 @@ const getUserName = (userId) => {
 
 //get message data
 const fetchMessages = (userId, receiverId) => {
-
-  console.log("fetching messages", userId, receiverId);
-
   setMessages([]);
   socket.off('messages');
   socket.emit('getMessages', { userId, receiverId });
   socket.on('messages', (messages) => {
-    console.log("messages", messages);
     setMessages(messages);
     setReplyingTo([]); 
 });
@@ -586,7 +582,6 @@ const handelGroupMessageLength = async (userId) => {
   
 // Handle group message read
 const handelGroupMessageRead = async (userId, groupId, messageId) => {
-
   try {
     const logArray = groupMessageStore.filter(msg => msg.group_id === groupId);
     socket.emit('getGroupMessageRead', userId, groupId, messageId, logArray);
@@ -629,7 +624,6 @@ const handleGetGroupMessages = async (groupId) => {
     setMessages([]);
     socket.emit('getGroupMessages', groupId);
     socket.once('groupMessages', (messages) => {
-      console.log("Received messages:", messages);
       setMessages(messages);  
       isFetching = false;  
     });
@@ -650,7 +644,6 @@ const handleGetGroupMessages = async (groupId) => {
 useEffect(() => {
   if (socket) {
     const groupMessageVerifyRespone = (updatedMessageIds) => {
-      console.log("Received updated message(s):", updatedMessageIds); 
     };
     socket.on('groupMessageVerifyRespone', groupMessageVerifyRespone);
     return () => {
@@ -772,7 +765,6 @@ useEffect(() => {
           setTypingUser(data.username);
           setIsTyping(data.typing);
         } else {
-          console.log("User IDs do not match. Ignoring typing:", data);
         }
       }
 
@@ -907,24 +899,24 @@ const handleDownload = async (fileName) => {
     <Container className="py-4 bg-light">
       <Row className="flex-grow-1">
         {/* User List */}
-        <Col
-          md={4}
-          className="d-flex flex-column bg-white rounded shadow-sm p-3"
-        >
+          <Col
+              md={4}
+              className="d-flex flex-column bg-white rounded shadow-sm p-3"
+            >
             {/* create group button */}
             <div className="d-flex align-items-center justify-content-between">
-            <div className="d-flex align-items-center">
-            <h3 className="mb-3 p-2 text-primary text-capitalize-custom">
-              {userName}
-            </h3>
-            {activeUsers.some(
-              (activeUser) => activeUser.userId === userId
-            ) && (
-              <span className="badge bg-success ms-2">
-                Active
-              </span>
-            )}
-          </div>
+              <div className="d-flex align-items-center">
+              <h3 className="mb-3 p-2 text-primary text-capitalize-custom">
+                {userName}
+              </h3>
+              {activeUsers.some(
+                (activeUser) => activeUser.userId === userId
+              ) && (
+                <span className="badge bg-success ms-2">
+                  Active
+                </span>
+              )}
+            </div>
             <Button
               type="button"
               label="Create Group"
@@ -933,158 +925,157 @@ const handleDownload = async (fileName) => {
               className="p-button-secondary"
               onClick={handleGroupCreate}
             />
-          </div>
+            </div>
+           
            {/* Display Users and Groups in One ListGroup */}
            <div>
-          <ListGroup
-            variant="flush"
-            className="overflow-auto"
-            style={{ height: "600px", backgroundColor: "#f9f9f9", textTransform: "capitalize" }}
-          >
-            {[
-              ...userlist.map((user) => ({ type: 'user', ...user })),
-              ...groups.map((group) => ({ type: 'group', ...group }))
-            ].length > 0 ? (
-              [
-                ...userlist.map((user) => ({ type: 'user', ...user })),
-                ...groups.map((group) => ({ type: 'group', ...group }))
-              ].map((item) => {
-                // Ensure unique key by combining 'type' and ID
-                const key = item.type === 'user' ? `user-${item.user_id}` : `group-${item.group_id}`;
-                return (
-                  <ListGroup.Item
-                    key={key}  // Unique key based on type and ID
-                    className={`cursor-pointer ${
-                      (item.type === 'user' && item.user_id === selectedUsers) ||
-                      (item.type === 'group' && item.group_id === selectedGroup)
-                        ? 'bg-primary text-white'
-                        : ''
-                    }`}
-                    onClick={() => item.type === 'user' ? handleUserClick(item) : handleGroupClick(item)}
-                    style={{
-                      backgroundColor: "#ffffff",
-                      borderBottom: "1px solid #ddd",
-                      position: "relative",
-                    }}
-                    type="button"
-                  >
-                    <div className="d-flex">
-                      <div className="d-flex align-items-center">
-                        {/* Left Section - Avatar for profile picture */}
-                        <Avatar
-                          label=""
-                          size="large"
-                          style={{ backgroundColor: '#8BA5B9FF', color: '#ffffff' }}
-                          shape="circle"
-                        />
-                        <div className="d-flex flex-column ms-2">
-                          {/* Display Username or Group Name */}
-                          <span className="fw-bold">
-                            {item.type === 'user' ? item.username : `${item.group_name}(Group)`}
-                          </span>
+                <ListGroup
+                  variant="flush"
+                  className="overflow-auto"
+                  style={{ height: "600px", backgroundColor: "#f9f9f9", textTransform: "capitalize" }}
+                >
+                  {[
+                    ...userlist.map((user) => ({ type: 'user', ...user })),
+                    ...groups.map((group) => ({ type: 'group', ...group }))
+                  ].length > 0 ? (
+                    [
+                      ...userlist.map((user) => ({ type: 'user', ...user })),
+                      ...groups.map((group) => ({ type: 'group', ...group }))
+                    ].map((item) => {
+                      // Ensure unique key by combining 'type' and ID
+                      const key = item.type === 'user' ? `user-${item.user_id}` : `group-${item.group_id}`;
+                      return (
+                        <ListGroup.Item
+                          key={key}  // Unique key based on type and ID
+                          className={`cursor-pointer ${
+                            (item.type === 'user' && item.user_id === selectedUsers) ||
+                            (item.type === 'group' && item.group_id === selectedGroup)
+                              ? 'bg-primary text-white'
+                              : ''
+                          }`}
+                          onClick={() => item.type === 'user' ? handleUserClick(item) : handleGroupClick(item)}
+                          style={{
+                            backgroundColor: "#ffffff",
+                            borderBottom: "1px solid #ddd",
+                            position: "relative",
+                          }}
+                          type="button"
+                        >
+                          <div className="d-flex">
+                            <div className="d-flex align-items-center">
+                              {/* Left Section - Avatar for profile picture */}
+                              <Avatar
+                                label=""
+                                size="large"
+                                style={{ backgroundColor: '#8BA5B9FF', color: '#ffffff' }}
+                                shape="circle"
+                              />
+                              <div className="d-flex flex-column ms-2">
+                                {/* Display Username or Group Name */}
+                                <span className="fw-bold">
+                                  {item.type === 'user' ? item.username : `${item.group_name}(Group)`}
+                                </span>
 
-                          {/* Last message text and status */}
-                          <div className="d-flex align-items-center mt-1">
-                            {/* Last message for one-to-one */}
-                            {item.type === 'user' && Array.isArray(lastMessages) && lastMessages.length > 0 && (
-                                lastMessages
-                                  .filter(message => message.sender_id === item.user_id || message.receiver_id === item.user_id)
-                                  .map((message, index) => {
-   
-                                    // Assuming message.created_at is a valid date string
-                                    const formattedDate = timeTracker(new Date(message.created_at)); 
+                                {/* Last message text and status */}
+                                <div className="d-flex align-items-center mt-1">
+                                  {/* Last message for one-to-one */}
+                                  {item.type === 'user' && Array.isArray(lastMessages) && lastMessages.length > 0 && (
+                                      lastMessages
+                                        .filter(message => message.sender_id === item.user_id || message.receiver_id === item.user_id)
+                                        .map((message, index) => {
+        
+                                          // Assuming message.created_at is a valid date string
+                                          const formattedDate = timeTracker(new Date(message.created_at)); 
 
-                                    const content = message.content || '';  
-                                    console.log("content", content.length);
-  
-                                    const show = content.length > 5;
-                                    const truncatedContent = show ? content.slice(0, 5) + '...' : content;
-                                    return (
-                                      <div key={index} className="d-flex justify-content-between  gap-4">
-                                        <p>{truncatedContent}</p>
-                                        <small>{formattedDate}</small>
+                                          const content = message.content || '';  
+                                          const show = content.length > 5;
+                                          const truncatedContent = show ? content.slice(0, 5) + '...' : content;
+                                          return (
+                                            <div key={index} className="d-flex justify-content-between  gap-4">
+                                              <p>{truncatedContent}</p>
+                                              <small>{formattedDate}</small>
+                                            </div>
+                                          );
+                                          
+                                        })
+                                    )}
+
+                                    {/* Last message for group */}
+                                    {item.type === 'group' && Array.isArray(lastGroupMessage) && lastGroupMessage.length > 0 && (
+                                    lastGroupMessage
+                                      .filter(message => message.groupId === item.group_id)
+                                      .map((message, index) => {
+                                        const content = message.content || '';  
+                                        const show = content.length > 5;
+                                        // Show only the first 5 characters followed by ellipsis if content length is greater than 5
+                                        const truncatedContent = show ? content.slice(0, 5) + '...' : content;
+
+                                        return (
+                                          <div key={index}>
+                                            <p>{truncatedContent}</p>
+                                          </div>
+                                        );
+                                      })
+                                  )}
+
+
+
+
+
+
+
+                                  <p className="mb-0 text-end" style={{ marginLeft: '10px' }}>
+                                    {/* Conditional rendering of message count */}
+                                    {item.type === 'user' && Array.isArray(storeMessage) && storeMessage.some(message => {
+                                      const messageKey = Object.keys(message)[0];
+                                      return parseInt(messageKey, 10) === item.user_id && parseInt(messageKey, 10) !== checkId;
+                                    }) && (
+                                      <Badge
+                                        value={storeMessage.find(message => Object.keys(message)[0] === String(item.user_id))?.[item.user_id] || 0}
+                                        severity="success"
+                                        style={{ fontSize: "12px" }}
+                                      />
+                                    )}
+
+                                    {/* group message list*/}
+
+
+                                    {item.type === 'group' && (
+                                      <div>
+                                        {item.group_id !== currentGroupId && item.sender_id !== userId ? (
+                                          <Badge
+                                            value={groupMessageStore.find(group => group.group_id === item.group_id)?.unread || null}
+                                            severity="success"
+                                            style={{ fontSize: "12px" }}
+                                          />
+                                        ) : null}
                                       </div>
-                                    );
-                                    
-                                  })
-                              )}
+                                    )}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
 
-                              {/* Last message for group */}
-                              {item.type === 'group' && Array.isArray(lastGroupMessage) && lastGroupMessage.length > 0 && (
-                              lastGroupMessage
-                                .filter(message => message.groupId === item.group_id)
-                                .map((message, index) => {
-                                  const content = message.content || '';  
-                                  const show = content.length > 5;
-                                  // Show only the first 5 characters followed by ellipsis if content length is greater than 5
-                                  const truncatedContent = show ? content.slice(0, 5) + '...' : content;
-
-                                  return (
-                                    <div key={index}>
-                                      <p>{truncatedContent}</p>
-                                    </div>
-                                  );
-                                })
+                            {/* Active User Badge */}
+                            {item.type === 'user' && activeUsers.some(
+                              (activeUser) => String(activeUser.userId) === String(item.user_id)
+                            ) && (
+                              <span className="badge bg-success position-absolute top-0 end-0 m-2">
+                                Active
+                              </span>
                             )}
 
-
-
-
-
-
-
-                            <p className="mb-0 text-end" style={{ marginLeft: '10px' }}>
-                              {/* Conditional rendering of message count */}
-                              {item.type === 'user' && Array.isArray(storeMessage) && storeMessage.some(message => {
-                                const messageKey = Object.keys(message)[0];
-                                return parseInt(messageKey, 10) === item.user_id && parseInt(messageKey, 10) !== checkId;
-                              }) && (
-                                <Badge
-                                  value={storeMessage.find(message => Object.keys(message)[0] === String(item.user_id))?.[item.user_id] || 0}
-                                  severity="success"
-                                  style={{ fontSize: "12px" }}
-                                />
-                              )}
-
-                              {/* group message list*/}
-
-
-                              {item.type === 'group' && (
-                                <div>
-                                  {item.group_id !== currentGroupId && item.sender_id !== userId ? (
-                                    <Badge
-                                      value={groupMessageStore.find(group => group.group_id === item.group_id)?.unread || null}
-                                      severity="success"
-                                      style={{ fontSize: "12px" }}
-                                    />
-                                  ) : null}
-                                </div>
-                              )}
-                            </p>
                           </div>
-                        </div>
-                      </div>
-
-                      {/* Active User Badge */}
-                      {item.type === 'user' && activeUsers.some(
-                        (activeUser) => String(activeUser.userId) === String(item.user_id)
-                      ) && (
-                        <span className="badge bg-success position-absolute top-0 end-0 m-2">
-                          Active
-                        </span>
-                      )}
-
-                    </div>
-                  </ListGroup.Item>
-                );
-              })
-            ) : (
-              <ListGroup.Item>No users or groups found</ListGroup.Item>
-            )}
-          </ListGroup>
-        </div>
-            </Col>
-            <Col
+                        </ListGroup.Item>
+                      );
+                    })
+                  ) : (
+                    <ListGroup.Item>No users or groups found</ListGroup.Item>
+                  )}
+                </ListGroup>
+            </div>
+          </Col>
+          <Col
               md={8}
               className="d-flex flex-column bg-white rounded shadow-sm p-3"
             >
@@ -1477,71 +1468,71 @@ const handleDownload = async (fileName) => {
                 </Form>
               )}
 
-            </Col>
-          </Row>
-          {/* Create Group Dialog */}
-          <Dialog
-            header="Create New Group"
-            visible={showCreateGroup}
-            onHide={handleCloseDialog}
-            style={{ width: "30vw", height: "30vh", backgroundColor: "#ffffff" }}
-            className="p-fluid p-shadow-24 p-3 m-3"
-          >
-            <Card style={{ height: "100%" }} className="p-shadow-24 p-mb-4 p-p-3">
-              <Form className="mb-3">
-                {/* Group Name Input */}
-                <Form.Group controlId="groupName">
-                  <Form.Label className="text-muted">Group Name</Form.Label>
-                  <Form.Control
-                    type="text"
-                    placeholder="Enter group name"
-                    value={groupName}
-                    onChange={(e) => setGroupName(e.target.value)}
-                    required
-                    className="mb-3 p-2"
-                    style={{
-                      backgroundColor: "#e0e0e0",
-                      border: "1px solid #ccc",
-                      borderRadius: "5px",
-                    }}
-                  />
-                </Form.Group>
-
-                {/* MultiSelect for Users */}
-                <Form.Group controlId="selectUsers">
-                  <Form.Label className="text-muted">Select Users</Form.Label>
-                  <MultiSelect
-                    value={selectedUsers}
-                    options={userlist}
-                    onChange={(e) => setSelectedUsers(e.value)}
-                    optionLabel="username"
-                    display="chip"
-                    placeholder="Select users"
-                    style={{
-                      width: "100%",
-                      backgroundColor: "#e0e0e0",
-                      border: "1px solid #ccc",
-                      borderRadius: "5px",
-                      text: "black",
-                    }}
-                    className="mb-3"
-                  />
-                </Form.Group>
-
-                {/* Create Group Button */}
-                <Button
-                  type="button"
-                  label="Create Group"
-                  icon="pi pi-check"
-                  onClick={handleCreateGroup}
-                  disabled={!groupName || selectedUsers.length === 0}
-                  className="p-button-success w-100"
+          </Col>
+        </Row>
+        {/* Create Group Dialog */}
+        <Dialog
+          header="Create New Group"
+          visible={showCreateGroup}
+          onHide={handleCloseDialog}
+          style={{ width: "30vw", height: "30vh", backgroundColor: "#ffffff" }}
+          className="p-fluid p-shadow-24 p-3 m-3"
+        >
+          <Card style={{ height: "100%" }} className="p-shadow-24 p-mb-4 p-p-3">
+            <Form className="mb-3">
+              {/* Group Name Input */}
+              <Form.Group controlId="groupName">
+                <Form.Label className="text-muted">Group Name</Form.Label>
+                <Form.Control
+                  type="text"
+                  placeholder="Enter group name"
+                  value={groupName}
+                  onChange={(e) => setGroupName(e.target.value)}
+                  required
+                  className="mb-3 p-2"
+                  style={{
+                    backgroundColor: "#e0e0e0",
+                    border: "1px solid #ccc",
+                    borderRadius: "5px",
+                  }}
                 />
-              </Form>
-            </Card>
+              </Form.Group>
 
-          
-          </Dialog>
+              {/* MultiSelect for Users */}
+              <Form.Group controlId="selectUsers">
+                <Form.Label className="text-muted">Select Users</Form.Label>
+                <MultiSelect
+                  value={selectedUsers}
+                  options={userlist}
+                  onChange={(e) => setSelectedUsers(e.value)}
+                  optionLabel="username"
+                  display="chip"
+                  placeholder="Select users"
+                  style={{
+                    width: "100%",
+                    backgroundColor: "#e0e0e0",
+                    border: "1px solid #ccc",
+                    borderRadius: "5px",
+                    text: "black",
+                  }}
+                  className="mb-3"
+                />
+              </Form.Group>
+
+              {/* Create Group Button */}
+              <Button
+                type="button"
+                label="Create Group"
+                icon="pi pi-check"
+                onClick={handleCreateGroup}
+                disabled={!groupName || selectedUsers.length === 0}
+                className="p-button-success w-100"
+              />
+            </Form>
+          </Card>
+
+        
+        </Dialog>
     </Container>
   );
 }
