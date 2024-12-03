@@ -249,8 +249,10 @@ useEffect(() => {
         }
       });
     };
+    
     //message reciver with used id and not the current user.
       const handleReceiveMessage = (newMessage) => {
+        console.log(newMessage);
         fetchLastMessage(userlist);
         //sotre the message
         if (parseInt(newMessage.sender_id, 10) !== parseInt(checkId, 10)) {
@@ -654,7 +656,13 @@ const removeFile = (index) => {
 // Send group message
 const handleSendGroupMessage = async (e) => {
   e.preventDefault();
-  if (!getGroupId || !inputValue) {
+
+  if (!inputValue.trim() && (!Array.isArray(file) || file.length === 0)) {
+    alert("Please type a message or select a file to send.");
+    return;
+  }
+
+  if (!getGroupId) {
     alert("Please select a group and type a message.");
     return;
   }
@@ -666,7 +674,7 @@ const handleSendGroupMessage = async (e) => {
     prevContent: replyingTo ? replyingTo.content : "",
     sender_name: userName,
     rebackName: replyingTo ? replyingTo.sender_name : "",
-
+    prevFile: replyingTo ? replyingTo.file_name : "",
     files:
       Array.isArray(file) && file.length > 0
         ? file.map((f) => ({

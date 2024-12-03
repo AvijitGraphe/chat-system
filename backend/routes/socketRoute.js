@@ -44,7 +44,6 @@ function websocketRoute(server) {
             socket.userId = userId;
             
             clients[userId] = socket;
-            
             socket.emit('connected', {userId});
             broadcastActiveUsers();
 
@@ -68,36 +67,31 @@ function websocketRoute(server) {
                     });
             
                     let filePaths = [];
-                    // Handle the previous file (prevFile)
-                    if (msg.prevFile) {
+
+                    if(msg.prevFile){
                         const prevFileRecord = await ChatFile.create({
                             file_name: msg.prevFile,
                             message_id: newMessage.message_id,
                         });
                         filePaths.push(prevFileRecord);                         
                     }
-                    // Process new files if any are provided
+
+                    console.log(msg.files);
                     if (msg.files && msg.files.length > 0) {
                         for (const file of msg.files) {
-                            try {
-                                const fileExtension = path.extname(file.name);
-                                const fileName = `${Date.now()}-${file.name}`;
-                                const filePath = path.join(__dirname, 'uploads', fileName);
-                                // Write the file data to disk
-                                fs.writeFileSync(filePath, file.data);
-                                // Create a record for the file in the ChatFile table
-                                const newFile = await ChatFile.create({
-                                    file_name: fileName,
-                                    message_id: newMessage.message_id,
-                                });
-                                filePaths.push(newFile); 
-                            } catch (err) {
-                                console.error('Error saving file:', err);
-                                socket.emit('error', { message: 'File save failed' });
-                            }
+                            // Save the file to disk
+                            const fileExtension = path.extname(file.name);
+                            const fileName = `${Date.now()}-${file.name}`;
+                            const filePath = path.join(__dirname, 'uploads', fileName);
+                            fs.writeFileSync(filePath, file.data); 
+                            const newFile = await ChatFile.create({
+                                file_name:fileName,
+                                message_id: newMessage.message_id, 
+                            });
+                            filePaths.push(newFile);
                         }
                     }
-                    // Broadcast the message along with the file paths (if any)
+
                     broadcastOneToOneMessage(newMessage, filePaths);
                 } catch (err) {
                     console.error('Error saving message:', err);
@@ -105,7 +99,6 @@ function websocketRoute(server) {
                 }
             });
             
-
 
             // Function to broadcast one-to-one message
             function broadcastOneToOneMessage(message, filePaths) {
@@ -119,18 +112,14 @@ function websocketRoute(server) {
                     rebackName: message.rebackName,
                     timestamp: message.created_at,
                     status: message.status,
-                    prevFile: message.prevFile || [],
                     files: filePaths || [], 
                 };
                 if (clients[message.sender_id]) {
                     clients[message.sender_id].emit('senderMessage', messageData);
                 }
-                
                 if (clients[message.receiver_id]) {
                     clients[message.receiver_id].emit('receiveMessage', messageData);
                 }
-
-
             }
             
             //respone the data
@@ -148,8 +137,10 @@ function websocketRoute(server) {
               
                   // Find the next message (if any)
                   const nextMessage = await Message.findOne({ where: { message_id: msg.message_id } });
+                  const filePaths  = await ChatFile.findAll({ where: { message_id: msg.message_id } });
                   if (nextMessage) {
-                    broadcastOneToOneMessage(nextMessage, []);  // Only send the next message if valid
+                    console.log("++++++++++++++++++++++isuue", nextMessage);
+                    broadcastOneToOneMessage(nextMessage, filePaths);  // Only send the next message if valid
                   }
 
                 // responseBack();
@@ -162,7 +153,7 @@ function websocketRoute(server) {
             //rspone the group message
             socket.on('sendGroupMessage', async (msg) => {
                 try {
-                    if (!msg.senderId || !msg.content || !msg.groupId) {
+                    if (!msg.senderId || !msg.groupId) {
                         console.error("Missing required fields: senderId, content, or groupId");
                         socket.emit('error', { message: 'Sender, content, and group are required' });
                         return;
@@ -179,9 +170,20 @@ function websocketRoute(server) {
                         prevContent: msg.prevContent,
                         sender_name: msg.sender_name,
                         rebackName: msg.rebackName,
+                        prevFile: msg.prevFile,
                         is_read: false,
                     });
+
                     let filePaths = [];
+
+                    if(msg.prevFile){
+                        const prevFileRecord = await ChatFile.create({
+                            file_name: msg.prevFile,
+                            message_id: newMessage.message_id,
+                        });
+                        filePaths.push(prevFileRecord);                         
+                    }
+
                     if (msg.files && msg.files.length > 0) {
                         for (const file of msg.files) {
                             // Save the file to disk
@@ -218,6 +220,7 @@ function websocketRoute(server) {
                     created_at: message.created_at,
                     status: message.status,
                 };
+              
                 const groupUsers = groups[message.group_id] || [];
                 const activeUsers = Object.keys(clients);
                 // Broadcast message to group members
