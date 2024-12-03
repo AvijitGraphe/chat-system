@@ -869,6 +869,37 @@ const handleLastGroupMessage = (userId) => {
   }
 };
 
+// Download function
+const handleDownload = async (fileName) => {
+  try {
+    const response = await fetch(`${fileUrl}/${fileName}`, {
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to download file");
+    }
+
+    // Create a blob from the response
+    const blob = await response.blob();
+
+    // Create a temporary link element
+    const link = document.createElement("a");
+    link.href = window.URL.createObjectURL(blob);
+    link.download = fileName;
+    link.style.display = "none";
+
+    // Append link to body and click it
+    document.body.appendChild(link);
+    link.click();
+
+    // Clean up
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(link.href);
+  } catch (error) {
+    console.error("Error downloading the file:", error);
+  }
+};
 
 
 
@@ -1213,68 +1244,54 @@ const handleLastGroupMessage = (userId) => {
                         
                           </p>
 
-                            {/* Display Files (if any) */}
-
-                            {msg.files && msg.files.length > 0 && (
+                          {/* Display Files (if any) */}
+                          {msg.files && msg.files.length > 0 && (
                               <div className="mt-2">
                                 <ul style={{ listStyleType: "none", paddingLeft: "0" }}>
                                   {msg.files.map((file) => (
-                                    <li key={file.file_id}>
-                                      {/* File type handling */}
+                                    <li
+                                      key={file.file_id}
+                                      style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        marginBottom: "10px",
+                                      }}
+                                    >
                                       {file.file_name && (
                                         <>
-                                          {/* If the file is an image */}
+                                          {/* If the file is an image, display it */}
                                           {file.file_name.match(/\.(jpg|jpeg|png|gif)$/i) && (
-                                            <div className="mt-2">
-                                              <img
-                                                src={`${fileUrl}/${file.file_name}`}
-                                                alt="Uploaded file"
-                                                style={{
-                                                  maxWidth: "200px",
-                                                  maxHeight: "200px",
-                                                }}
-                                              />
-                                            </div>
+                                            <img
+                                              src={`${fileUrl}/${file.file_name}`}
+                                              alt="Uploaded file"
+                                              style={{
+                                                maxWidth: "100px",
+                                                maxHeight: "100px",
+                                                marginRight: "10px",
+                                              }}
+                                            />
                                           )}
 
-                                          {/* If the file is a PDF */}
-                                          {file.file_name.match(/\.(pdf)$/i) && (
-                                            <div className="mt-2">
-                                              <a
-                                                href={file.file_url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                              >
-                                                <strong>View PDF</strong>
-                                              </a>
-                                            </div>
-                                          )}
+                                          {/* Display file name */}
+                                          <span style={{ flexGrow: 1, marginLeft: "10px" }}>
+                                            {/* {file.file_name} */}
+                                          </span>
 
-                                          {/* If the file is an Excel file */}
-                                          {file.file_name.match(/\.(xls|xlsx)$/i) && (
-                                            <div className="mt-2">
-                                              <a
-                                                href={file.file_url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                              >
-                                                <strong>View Excel File</strong>
-                                              </a>
-                                            </div>
-                                          )}
-
-                                          {/* Default fallback for other file types */}
-                                          {!file.file_name.match(/\.(jpg|jpeg|png|gif|pdf|xls|xlsx)$/i) && (
-                                            <div className="mt-2">
-                                              <a
-                                                href={file.file_url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                              >
-                                                <strong>Download File</strong>
-                                              </a>
-                                            </div>
-                                          )}
+                                          {/* Download button */}
+                                          <button
+                                            onClick={() => handleDownload(file.file_name)}
+                                            style={{
+                                              backgroundColor: "#007bff",
+                                              color: "#fff",
+                                              border: "none",
+                                              padding: "5px 10px",
+                                              borderRadius: "5px",
+                                              cursor: "pointer",
+                                              fontSize: "14px",
+                                            }}
+                                          >
+                                            Download
+                                          </button>
                                         </>
                                       )}
                                     </li>
@@ -1282,7 +1299,6 @@ const handleLastGroupMessage = (userId) => {
                                 </ul>
                               </div>
                             )}
-
 
                           </div>
                         </div>
@@ -1326,16 +1342,53 @@ const handleLastGroupMessage = (userId) => {
                     <Col>
 
                     {replyingTo && replyingTo.sender_name && replyingTo.content && (
-                      <div className="replying-to">
-                        <div className="d-flex justify-content-between align-items-center">
-                            <strong>Replying to:</strong> 
-                            <i className="pi pi-times p-2" onClick={() => setReplyingTo(null)}></i>
+                        <div className="replying-to">
+                          <div className="d-flex justify-content-between align-items-center">
+                              <strong>Replying to:</strong> 
+                              <i className="pi pi-times p-2" onClick={() => setReplyingTo(null)}></i>
+                          </div>
+                          <p className="p-0 m-0">{replyingTo.sender_name}</p>
+                          <p className="px-4">{replyingTo.content}</p>
+                          {replyingTo.files && replyingTo.files.length > 0 && (
+                                <div className="mt-2">
+                                  <ul style={{ listStyleType: "none", paddingLeft: "0" }}>
+                                    {replyingTo.files.map((file) => (
+                                      <li
+                                        key={file.file_id}
+                                        style={{
+                                          display: "flex",
+                                          alignItems: "center",
+                                          marginBottom: "10px",
+                                        }}
+                                      >
+                                        {file.file_name && (
+                                          <>
+                                            {/* If the file is an image, display it */}
+                                            {file.file_name.match(/\.(jpg|jpeg|png|gif)$/i) && (
+                                              <img
+                                                src={`${fileUrl}/${file.file_name}`}
+                                                alt="Uploaded file"
+                                                style={{
+                                                  maxWidth: "100px",
+                                                  maxHeight: "100px",
+                                                  marginRight: "10px",
+                                                }}
+                                              />
+                                            )}
+
+                                            {/* Display file name */}
+                                            <span style={{ flexGrow: 1, marginLeft: "10px" }}>
+                                              {file.file_name}
+                                            </span>
+                                          </>
+                                        )}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
                         </div>
-                        <p className="p-0 m-0">{replyingTo.sender_name}</p>
-                        <p className="px-4">{replyingTo.content}</p>
-                      
-                      </div>
-                    )}
+                      )}
 
                       
                       <Form.Control
