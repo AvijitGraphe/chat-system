@@ -1125,7 +1125,6 @@ const handleDownload = async (fileName) => {
                     {messages.length > 0 ? (
                     messages.map((msg, index) => {
                       const isSender = parseInt(msg.sender_id, 10) === parseInt(userId, 10); 
-                      // Format the date
                       const formattedDate = formatDate(msg.timestamp);
                       const showDate = index === 0 || formattedDate !== formatDate(messages[index - 1].timestamp);
                       return (
