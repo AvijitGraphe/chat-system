@@ -91,7 +91,7 @@ useEffect(() => {
 
 
 
-
+//scroll message  data
 useEffect(() =>{
   if(chatcontainerRef.current){
     chatcontainerRef.current.scrollTop = chatcontainerRef.current.scrollHeight;
@@ -100,7 +100,6 @@ useEffect(() =>{
 
 //Show all effect data
 useEffect(() => {
-
   if(socket){
     fetchUserList();
     handleShowGroups(userId);
@@ -124,7 +123,6 @@ const fetchUserList = () => {
     setUserlist(users); 
     fetchLastMessage(users); 
   });
-
   // Handle errors
   socket.on('error', (error) => {
     console.error('Error fetching user list:', error);
@@ -138,7 +136,6 @@ const handleUserClick = (user) => {
   setGetGroupId(null);
   setShowGroupName("");
   setSelectedGroup([]);
-
   // Set user-specific data
   setReceiverId(user.user_id);
   setReceiverName(user.username);
@@ -148,8 +145,6 @@ const handleUserClick = (user) => {
   setGetUserIdActive(user.user_id);
   clearStoreMessage(user.user_id); 
   handleLeaveGroup(prevGroupId);
-
-
   fetchMessages(userId, user.user_id);
 };
 
@@ -218,8 +213,7 @@ const fetchMessages = (userId, receiverId) => {
 };
 
 
-//all messge data get
-
+//All messge data get
 useEffect(() => {
   if (socket) {     
     const senderMessage = (newMessage) => {
@@ -238,7 +232,6 @@ useEffect(() => {
               updatedMessages.push(msg);
             }
           });
-    
           return updatedMessages;
         } 
         else {
@@ -285,18 +278,6 @@ useEffect(() => {
       }
     };
 
-    // Typing event handler
-    const handleTyping = (groupId, users) => {
-      if (groupId === parseInt(activeGroup, 10)) {
-        setTypingUsers(users.map((user) => user.userName));
-      } else {
-        setTypingUsers([]);
-      }
-    };
-    // Stop typing event handler
-    const handleStopTyping = (groupId, users) => {
-      setTypingUsers([]);
-    };
     const handleActiveUserList = (activeUsers) => {
       setActiveUsers(activeUsers);
     };
@@ -326,7 +307,6 @@ const responseMessage= (newMessage) => {
   }
 };
 
-
 useEffect(() => {
   if (socket) {
     socket.on('response', (data) => {
@@ -340,7 +320,7 @@ useEffect(() => {
   }
 }, [socket]);
 
-
+  // Handle message length
   const handleShowLength = (userId) => {
     socket.emit('getMessageLength', userId);
     socket.on('messageLength', (messageCounts) => {
@@ -388,7 +368,7 @@ const handleCreateGroup = async () => {
 };
 
 
-
+// Handle group list show
 const handleShowGroups = (userId) => {
   socket.emit('getGroups', userId);
   socket.on('groupsResponse', (groups) => {
@@ -576,8 +556,6 @@ const handelGroupMessageLength = async (userId) => {
     console.error('Error in handelGroupMessageLength:', error);
   }
 };
-
-
 
   
 // Handle group message read
