@@ -12,6 +12,7 @@ import { FiPaperclip } from "react-icons/fi";
 import { FiX } from "react-icons/fi";
 import { Avatar } from 'primereact/avatar';
 import { Badge } from 'primereact/badge';
+import "primereact/resources/themes/lara-light-cyan/theme.css";
 
 import 'primeicons/primeicons.css';
         
@@ -421,7 +422,13 @@ const handleGroupClick = (group) => {
 //Message send emmit one to one
 const handleSendMessage = async (e) => {
   e.preventDefault();
-  if (!receiverId || !inputValue) {
+  // Check if there's any input value or file
+  if (!inputValue.trim() && (!Array.isArray(file) || file.length === 0)) {
+    alert("Please type a message or select a file to send.");
+    return;
+  }
+  
+  if (!receiverId) {
     alert("Please select a user and type a message.");
     return;
   }
@@ -1352,7 +1359,7 @@ const handleDownload = async (fileName) => {
                         value={inputValue}
                         // onChange={(e) => setInputValue(e.target.value)}
                         onChange={handleInputChange}
-                        required
+                        // required
                       />
                     </Col>
                   </Row>
@@ -1417,10 +1424,10 @@ const handleDownload = async (fileName) => {
                   <Button
                     type="submit"
                     variant="success"
-                    disabled={
-                      (receiverName && !getGroupId ? !receiverId : !getGroupId) ||
-                      !inputValue
-                    }
+                    // disabled={
+                    //   (receiverName && !getGroupId ? !receiverId : !getGroupId) ||
+                    //   !inputValue
+                    // }
                     className="w-100 mt-2"
                   >
                     Send
@@ -1437,7 +1444,7 @@ const handleDownload = async (fileName) => {
           style={{ width: "30vw", height: "30vh", backgroundColor: "#ffffff" }}
           className="p-fluid p-shadow-24 p-3 m-3"
         >
-          <Card style={{ height: "100%" }} className="p-shadow-24 p-mb-4 p-p-3">
+          <Card  className="p-shadow-24 p-mb-4 p-p-3">
             <Form className="mb-3">
               {/* Group Name Input */}
               <Form.Group controlId="groupName">
