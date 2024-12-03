@@ -53,8 +53,8 @@ function websocketRoute(server) {
 
             //user message data
             socket.on('sendMessage', async (msg) => {
-                
                 try {
+                    // Create a new message record in the database
                     const newMessage = await Message.create({
                         sender_id: msg.senderId,
                         receiver_id: msg.receiverId,
@@ -63,28 +63,48 @@ function websocketRoute(server) {
                         prevContent: msg.prevContent,
                         sender_name: msg.sender_name,
                         rebackName: msg.rebackName,
+                        prevFile: msg.prevFile,  
                         is_read: false,
                     });
+            
                     let filePaths = [];
+                    // Handle the previous file (prevFile)
+                    if (msg.prevFile) {
+                        const prevFileRecord = await ChatFile.create({
+                            file_name: msg.prevFile,
+                            message_id: newMessage.message_id,
+                        });
+                        filePaths.push(prevFileRecord);                         
+                    }
+                    // Process new files if any are provided
                     if (msg.files && msg.files.length > 0) {
                         for (const file of msg.files) {
-                            const fileExtension = path.extname(file.name);
-                            const fileName = `${Date.now()}-${file.name}`;
-                            const filePath = path.join(__dirname, 'uploads', fileName);
-                            fs.writeFileSync(filePath, file.data); 
-                            const newFile = await ChatFile.create({
-                                file_name: fileName,
-                                message_id: newMessage.message_id,
-                            });
-                            filePaths.push(newFile);
+                            try {
+                                const fileExtension = path.extname(file.name);
+                                const fileName = `${Date.now()}-${file.name}`;
+                                const filePath = path.join(__dirname, 'uploads', fileName);
+                                // Write the file data to disk
+                                fs.writeFileSync(filePath, file.data);
+                                // Create a record for the file in the ChatFile table
+                                const newFile = await ChatFile.create({
+                                    file_name: fileName,
+                                    message_id: newMessage.message_id,
+                                });
+                                filePaths.push(newFile); 
+                            } catch (err) {
+                                console.error('Error saving file:', err);
+                                socket.emit('error', { message: 'File save failed' });
+                            }
                         }
                     }
+                    // Broadcast the message along with the file paths (if any)
                     broadcastOneToOneMessage(newMessage, filePaths);
                 } catch (err) {
                     console.error('Error saving message:', err);
                     socket.emit('error', { message: 'Message send failed' });
                 }
             });
+            
 
 
             // Function to broadcast one-to-one message
@@ -99,6 +119,7 @@ function websocketRoute(server) {
                     rebackName: message.rebackName,
                     timestamp: message.created_at,
                     status: message.status,
+                    prevFile: message.prevFile || [],
                     files: filePaths || [], 
                 };
                 if (clients[message.sender_id]) {
@@ -364,8 +385,7 @@ function websocketRoute(server) {
                     messages.map(async (msg) => {
                     const files = await ChatFile.findAll({
                         where: { message_id: msg.message_id }
-                    });
-
+                    });   
                     return {
                         message_id: msg.message_id,
                         sender_id: msg.sender_id,

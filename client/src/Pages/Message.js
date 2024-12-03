@@ -218,6 +218,8 @@ const fetchMessages = (userId, receiverId) => {
 useEffect(() => {
   if (socket) {     
     const senderMessage = (newMessage) => {
+      console.log(newMessage);
+      
       setMessages((prevMessages) => {
         if (Array.isArray(newMessage)) {
           if (newMessage.length === 0) {
@@ -427,7 +429,7 @@ const handleSendMessage = async (e) => {
     alert("Please type a message or select a file to send.");
     return;
   }
-  
+
   if (!receiverId) {
     alert("Please select a user and type a message.");
     return;
@@ -440,6 +442,7 @@ const handleSendMessage = async (e) => {
     prevMessageId: replyingTo ? replyingTo.message_id : null,
     prevContent: replyingTo ? replyingTo.content : "",
     rebackName: replyingTo ? replyingTo.sender_name : "",
+    prevFile: replyingTo ? replyingTo.file_name : "",
     files:
       Array.isArray(file) && file.length > 0
         ? file.map((f) => ({
@@ -771,11 +774,44 @@ useEffect(() => {
 
 
   
-//reply to a message
-const handleReplyClick = (message) => {
-  setReplyingTo(message); 
-  setInputValue("");
+// reply to a message
+const handleReplyClick = (message, file) => {
+  if (file && message && message.files && message.files.length > 0) {
+    const fileMatch = message.files.some(item => item.file_name === file.file_name);
+    if (fileMatch) {
+      // File matched, update the message with file information
+      const updatedMessage = {
+        ...message,
+        replyInfo: {
+          file_name: file.file_name,  
+          sender_name: message.sender_name, 
+          message_id: message.message_id,  
+        }
+      };
+      setReplyingTo(updatedMessage.replyInfo); 
+    }
+  } else {
+    const updatedMessage = {
+      ...message,
+      replyInfo: {
+        file_name: "", 
+        sender_name: message.sender_name, 
+        message_id: message.message_id,
+        content: message.content,
+      }
+    };
+    setReplyingTo(updatedMessage.replyInfo); 
+  }
+
+  setInputValue(""); // Clear input field
 };
+
+
+
+
+
+
+
 
 
 // Helper function to format the date
@@ -1124,156 +1160,221 @@ const handleDownload = async (fileName) => {
               {/* Typing indicator */}
               <p>{isTyping && typingUser && <div className="text-green">{typingUser} is typing...</div>}</p>
               {/* Message Display Section */}
-              <div
+                <div
                 className="flex-grow-1 overflow-auto border border-light rounded p-3 mb-2"
                 style={{ height: "400px", backgroundColor: "#f1f1f1" }}
                 ref={chatcontainerRef}
               >
-                    {messages.length > 0 ? (
-                    messages.map((msg, index) => {
-                      const isSender = parseInt(msg.sender_id, 10) === parseInt(userId, 10); 
-                      const formattedDate = formatDate(msg.timestamp);
-                      const showDate = index === 0 || formattedDate !== formatDate(messages[index - 1].timestamp);
-                      return (
+                {messages.length > 0 ? (
+                  messages.map((msg, index) => {
+                    const isSender = parseInt(msg.sender_id, 10) === parseInt(userId, 10);
+                    const formattedDate = formatDate(msg.timestamp);
+                    const showDate =
+                      index === 0 || formattedDate !== formatDate(messages[index - 1].timestamp);
+
+                    return (
+                      <div
+                      key={msg.message_id}
+                      className={`d-flex mb-3 ${
+                        isSender ? "justify-content-end" : "justify-content-start"
+                      }`}
+                    >
+                      {showDate && (
                         <div
-                            key={msg.message_id}
-                            className={`d-flex mb-2 ${isSender ? "justify-content-end" : "justify-content-start"}`}
-                          >
-                          {showDate && (
-                            <div
-                              style={{
-                                width: "100%",  
-                                textAlign: "center",  
-                                margin: "10px 0",  
-                              }}
-                            >
-                              <p className="message-date" style={{ fontSize: "0.8rem", color: "#888" }}>
-                                {formattedDate}
-                              </p>
-                            </div>
-                          )}
+                          style={{
+                            width: "100%",
+                            textAlign: "center",
+                            margin: "10px 0",
+                            fontSize: "0.8rem",
+                            color: "#888",
+                          }}
+                        >
+                          <p className="message-date">{formattedDate}</p>
+                        </div>
+                      )}
+                    
+                      <div
+                        className="message-bubble p-3"
+                        style={{
+                          // backgroundColor: isSender ? "#007bff" : "#f0f0f0",
+                          color: isSender ? "#fff" : "#000",
+                          borderRadius: "15px",
+                          maxWidth: "75%",
+                          position: "relative",
+                        }}
+                        onMouseEnter={() => setHoverMessage(msg.message_id)}
+                        onMouseLeave={() => setHoverMessage(null)}
+                      >
+                        {/* Displaying the Reply Button */}
+                        {/* Reply Content */}
+
+                        {/* Message Sender Name */}
+                        <div style={{ fontWeight: "bold", marginBottom: "5px" , color: isSender ? "black" : "#000" }}>
+                          {isSender ? "You" : msg.sender_name}
+                        </div>
+
+                        {msg.prevContent && (
                           <div
-                            className="message-bubble p-2"
+                            className="reply-content"
                             style={{
-                              backgroundColor: isSender ? "#007bff" : "#f0f0f0",
-                              color: isSender ? "#fff" : "#000",
-                              borderRadius: "15px",
-                              maxWidth: "80%",
-                              position: "relative",
+                              marginBottom: "10px",
+                              padding: "10px",
+                              backgroundColor: "#BEB8B8FF",
+                              borderRadius: "5px",
                             }}
-                              onMouseEnter={() => setHoverMessage(msg.message_id)} 
+                          >
+                            <strong>Replying to:</strong>
+                            <p>{msg.rebackName}</p>
+                            <p>{msg.prevContent}</p>
+                          </div>
+                        )}
+
+
+                        {/* Message Content */}
+                        <ul style={{ listStyleType: "none", paddingLeft: "0", margin: "0" }}>
+                          {msg.content && (
+                            <li
+                              style={{
+                                backgroundColor: isSender ? "#007bff" : "#f0f0f0",
+                                marginBottom: "10px",
+                                padding: "4px",
+                                position: "relative",
+                              }}
+                              onMouseEnter={() => setHoverMessage(msg.message_id)}
                               onMouseLeave={() => setHoverMessage(null)}
                             >
-                            {/* Displaying the Button */}
-                            <Button
-                              style={{
-                                position: "absolute",  
-                                left: isSender ? "0" : "auto",  
-                                right: !isSender ? "0" : "auto", 
-                                top: "50%",
-                                transform: "translateY(-50%)",
-                                visibility: hoverMessage === msg.message_id ? "visible" : "hidden", 
-                              }}
-                              onClick={() => handleReplyClick(msg)}  
-                            >
-                              Reply
-                            </Button>
+                              <div>
+                                {msg.content && (
+                                  <div>{msg.content}</div>
+                                )}
 
-                            {/* Reply content (if any) */}
-                            {msg.prevContent && (
-                              <div className="reply-content" style={{ marginBottom: "10px", padding: "10px", backgroundColor: "#BEB8B8FF", borderRadius: "5px" }}>
-                                <strong>Replying to:</strong>
-                                <p>{msg.rebackName}</p>
-                                <p>{msg.prevContent}</p>
+                                {/* Only show the "reply" button if msg.content exists */}
+                                {msg.content && (
+                                  <button
+                                    style={{
+                                      position: "absolute",
+                                      left: isSender ? "0" : "auto",
+                                      right: !isSender ? "0" : "auto",
+                                      top: "50%",
+                                      transform: "translateY(-50%)",
+                                      visibility: hoverMessage === msg.message_id ? "visible" : "hidden",
+                                    }}
+                                    onClick={() => handleReplyClick(msg)}
+                                  >
+                                    reply
+                                  </button>
+                                )}
+                              </div>
+                            </li>
+                          )}
+                          <li>
+                            {msg.files && msg.files.length > 0 && (
+                              <div>
+                                {msg.files.map((file) => (
+                                  <div
+                                    key={file.file_id}
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      marginBottom: "10px",
+                                      position: "relative",
+                                    }}
+                                    onMouseEnter={() => setHoverMessage(file.file_id)} 
+                                    onMouseLeave={() => setHoverMessage(null)} 
+                                  >
+                                    {/* If the file is an image, display it */}
+                                    {file.file_name && file.file_name.match(/\.(jpg|jpeg|png|gif)$/i) && (
+                                        <div style={{ marginRight: "10px" }}>
+                                          <img
+                                            src={`${fileUrl}/${file.file_name}`}
+                                            alt="Uploaded file"
+                                            style={{
+                                              maxWidth: "60px",
+                                              maxHeight: "60px",
+                                              borderRadius: "5px",
+                                            }}
+                                          />
+                                        </div>
+                                      )}
+
+                                    {/* Display file name and Download button */}
+                                    <div style={{ flexGrow: 1, marginLeft: "10px" }}>
+                                      <Button
+                                        onClick={() => handleDownload(file.file_name)}
+                                        style={{
+                                          backgroundColor: "#007bff",
+                                          color: "#fff",
+                                          border: "none",
+                                          padding: "5px 10px",
+                                          borderRadius: "5px",
+                                          cursor: "pointer",
+                                          fontSize: "14px",
+                                          marginLeft: "10px",
+                                        }}
+                                        size="sm"
+                                      >
+                                        Download
+                                      </Button>
+                                    </div>
+
+                                    {/* Reply button for each file */}
+                                    <button
+                                      style={{
+                                        position: "absolute",
+                                        left: isSender ? "0" : "auto",
+                                        right: !isSender ? "0" : "auto",
+                                        top: "50%",
+                                        transform: "translateY(-50%)",
+                                        visibility: hoverMessage === file.file_id ? "visible" : "hidden",
+                                      }}
+                                      onClick={() => handleReplyClick(msg, file)}  
+                                    >
+                                      Reply
+                                    </button>
+                                  </div>
+                                ))}
                               </div>
                             )}
+                          </li>
+                        </ul>
 
-                            {/* Message Sender Name */}
-                            <strong>
-                              {isSender ? "You" : msg.sender_name}
-                            </strong>
-                            {/* Message Content */}
-                            <p>{msg.content}</p>
-                            <p>{timeTracker(new Date(msg.timestamp))}</p>
-
-                            {/* messge confirem  group_status */}
-                            <p>
-                            { msg.status === "check"  ? (
+                        {/* Message Status (read receipt) */}
+                        <div className="d-flex align-items-center justify-content-between">
+                          <div style={{ fontSize: "0.8rem", color: "black" }}>
+                            {timeTracker(new Date(msg.timestamp))}
+                          </div>
+                          <div>
+                            {msg.status === "check" ? (
                               <>
-                                <i className="pi pi-check" style={{ color: 'black' }} aria-label="Checked"></i>
-                                <i className="pi pi-check" style={{ color: 'black' }} aria-label="Checked"></i>
+                                <i
+                                  className="pi pi-check"
+                                  style={{ color: "black" }}
+                                  aria-label="Checked"
+                                ></i>
+                                <i
+                                  className="pi pi-check"
+                                  style={{ color: "black" }}
+                                  aria-label="Checked"
+                                ></i>
                               </>
                             ) : (
-                              <i className="pi pi-check" style={{ color: 'black' }} aria-label="Not checked"></i>
-                            )}
-                            </p>
-
-                            <p>                      
-                            </p>
-                            {/* Display Files (if any) */}
-                            {msg.files && msg.files.length > 0 && (
-                                <div className="mt-2">
-                                  <ul style={{ listStyleType: "none", paddingLeft: "0" }}>
-                                    {msg.files.map((file) => (
-                                      <li
-                                        key={file.file_id}
-                                        style={{
-                                          display: "flex",
-                                          alignItems: "center",
-                                          marginBottom: "10px",
-                                        }}
-                                      >
-                                        {file.file_name && (
-                                          <>
-                                            {/* If the file is an image, display it */}
-                                            {file.file_name.match(/\.(jpg|jpeg|png|gif)$/i) && (
-                                              <img
-                                                src={`${fileUrl}/${file.file_name}`}
-                                                alt="Uploaded file"
-                                                style={{
-                                                  maxWidth: "100px",
-                                                  maxHeight: "100px",
-                                                  marginRight: "10px",
-                                                }}
-                                              />
-                                            )}
-
-                                            {/* Display file name */}
-                                            <span style={{ flexGrow: 1, marginLeft: "10px" }}>
-                                              {/* {file.file_name} */}
-                                            </span>
-
-                                            {/* Download button */}
-                                            <button
-                                              onClick={() => handleDownload(file.file_name)}
-                                              style={{
-                                                backgroundColor: "#007bff",
-                                                color: "#fff",
-                                                border: "none",
-                                                padding: "5px 10px",
-                                                borderRadius: "5px",
-                                                cursor: "pointer",
-                                                fontSize: "14px",
-                                              }}
-                                            >
-                                              Download
-                                            </button>
-                                          </>
-                                        )}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
+                              <i
+                                className="pi pi-check"
+                                style={{ color: "black" }}
+                                aria-label="Not checked"
+                              ></i>
                             )}
                           </div>
                         </div>
-                      );
-                    })
-                  ) : (
-                    <div>No messages yet.</div>
-                  )}
-              </div>
-
+                      </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div>No messages yet.</div>
+                )}
+                </div>
+              {/* From Section */}
               {isShow && (
                 <Form
                     onSubmit={
@@ -1284,7 +1385,6 @@ const handleDownload = async (fileName) => {
                     className="bg-light"
                   >
                   <Row className="d-flex align-items-center gap-3">
-
                     {/* File input with attachment icon */}
                     <Col xs="auto">
                       <label
@@ -1302,10 +1402,9 @@ const handleDownload = async (fileName) => {
                         />
                       </label>
                     </Col>
-
                     {/* Message input */}
                     <Col>
-                      {replyingTo && replyingTo.sender_name && replyingTo.content && (
+                      {replyingTo && replyingTo.sender_name &&  (
                         <div className="replying-to">
                           <div className="d-flex justify-content-between align-items-center">
                               <strong>Replying to:</strong> 
@@ -1313,7 +1412,9 @@ const handleDownload = async (fileName) => {
                           </div>
                           <p className="p-0 m-0">{replyingTo.sender_name}</p>
                           <p className="px-4">{replyingTo.content}</p>
-                          {replyingTo.files && replyingTo.files.length > 0 && (
+
+                          <div>
+                            {(replyingTo.files && replyingTo.files.length > 0) ? (
                                 <div className="mt-2">
                                   <ul style={{ listStyleType: "none", paddingLeft: "0" }}>
                                     {replyingTo.files.map((file) => (
@@ -1333,24 +1434,45 @@ const handleDownload = async (fileName) => {
                                                 src={`${fileUrl}/${file.file_name}`}
                                                 alt="Uploaded file"
                                                 style={{
-                                                  maxWidth: "100px",
-                                                  maxHeight: "100px",
+                                                  maxWidth: "40px",
+                                                  maxHeight: "40px",
                                                   marginRight: "10px",
                                                 }}
                                               />
                                             )}
-
-                                            {/* Display file name */}
-                                            <span style={{ flexGrow: 1, marginLeft: "10px" }}>
-                                              {file.file_name}
-                                            </span>
                                           </>
                                         )}
                                       </li>
                                     ))}
                                   </ul>
                                 </div>
-                              )}
+                              ) : (replyingTo.file_name && (
+                                <div className="mt-2">
+                                  <ul style={{ listStyleType: "none", paddingLeft: "0" }}>
+                                    <li
+                                      style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        marginBottom: "10px",
+                                      }}
+                                    >
+                                      {/* Display file if file_name is directly in replyingTo */}
+                                      {replyingTo.file_name.match(/\.(jpg|jpeg|png|gif)$/i) && (
+                                        <img
+                                          src={`${fileUrl}/${replyingTo.file_name}`}
+                                          alt="Uploaded file"
+                                          style={{
+                                            maxWidth: "40px",
+                                            maxHeight: "40px",
+                                            marginRight: "10px",
+                                          }}
+                                        />
+                                      )}
+                                    </li>
+                                  </ul>
+                                </div>
+                              ))}
+                          </div>
                         </div>
                       )}
                       <Form.Control
@@ -1359,11 +1481,9 @@ const handleDownload = async (fileName) => {
                         value={inputValue}
                         // onChange={(e) => setInputValue(e.target.value)}
                         onChange={handleInputChange}
-                        // required
                       />
                     </Col>
                   </Row>
-
                   {/* Display selected file preview */}
                   {file && file.length > 0 && (
                     <Row className="mt-3">
@@ -1381,7 +1501,7 @@ const handleDownload = async (fileName) => {
                                 className="img-fluid mb-2"
                                 style={{
                                   maxWidth: "25px",
-                                  maxHeight: "100px",
+                                  maxHeight: "30px",
                                   objectFit: "contain",
                                 }}
                               />
@@ -1410,7 +1530,7 @@ const handleDownload = async (fileName) => {
                               type="button"
                               className="btn btn-link position-absolute top-0 end-0"
                               onClick={() => removeFile(index)}
-                              style={{ fontSize: "16px", color: "#dc3545" }} // Red color for cancel
+                              style={{ fontSize: "16px", color: "#dc3545" }} 
                             >
                               <FiX />
                             </button>
@@ -1419,7 +1539,6 @@ const handleDownload = async (fileName) => {
                       ))}
                     </Row>
                   )}
-
                   {/* Send button */}
                   <Button
                     type="submit"
