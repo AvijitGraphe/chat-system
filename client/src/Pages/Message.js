@@ -218,8 +218,6 @@ const fetchMessages = (userId, receiverId) => {
 useEffect(() => {
   if (socket) {     
     const senderMessage = (newMessage) => {
-      console.log(newMessage);
-      
       setMessages((prevMessages) => {
         if (Array.isArray(newMessage)) {
           if (newMessage.length === 0) {
@@ -249,10 +247,9 @@ useEffect(() => {
         }
       });
     };
-    
+
     //message reciver with used id and not the current user.
       const handleReceiveMessage = (newMessage) => {
-        console.log(newMessage);
         fetchLastMessage(userlist);
         //sotre the message
         if (parseInt(newMessage.sender_id, 10) !== parseInt(checkId, 10)) {
@@ -975,8 +972,8 @@ const handleDownload = async (fileName) => {
                       const key = item.type === 'user' ? `user-${item.user_id}` : `group-${item.group_id}`;
                       return (
                         <ListGroup.Item
-                          key={key}  // Unique key based on type and ID
-                          className={`cursor-pointer ${
+                            key={key}  
+                            className={`cursor-pointer ${
                             (item.type === 'user' && item.user_id === selectedUsers) ||
                             (item.type === 'group' && item.group_id === selectedGroup)
                               ? 'bg-primary text-white'
@@ -1045,12 +1042,7 @@ const handleDownload = async (fileName) => {
                                           </div>
                                         );
                                       })
-                                  )}
-
-
-
-
-
+                                    )}
 
 
                                   <p className="mb-0 text-end" style={{ marginLeft: '10px' }}>
@@ -1081,6 +1073,7 @@ const handleDownload = async (fileName) => {
                                       </div>
                                     )}
                                   </p>
+
                                 </div>
                               </div>
                             </div>

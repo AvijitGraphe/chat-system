@@ -136,3 +136,39 @@
               <div>No messages yet.</div>
             )}
           </div>
+
+
+
+// const handleCreateGroup = async () => {
+//   if (!groupName || selectedUsers.length === 0) {
+//     alert("Please enter a group name and select at least one user.");
+//     return;
+//   }
+//   const payload = {
+//     groupName: groupName,
+//     selectedUsers: selectedUsers,
+//     userId: userId,
+//   };
+//   socket.emit('createGroup', payload);
+//   setSelectedUsers([]);
+//   setGroupName("");
+//   setShowCreateGroup(false);
+
+//   handleShowGroups(userId);
+
+// };
+
+
+// Handle group list show
+// const handleShowGroups = (userId) => {
+//   socket.emit('getGroups', userId);
+//   socket.on('groupsResponse', (groups) => {
+//     // Update the state with the received groups
+//     setGroups(groups);  
+//   });
+
+//   // Handle errors
+//   socket.on('error', (error) => {
+//     console.error('Error fetching groups:', error);
+//   });
+// };
